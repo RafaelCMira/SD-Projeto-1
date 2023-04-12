@@ -1,4 +1,4 @@
-package sd2223.trab1.server.resources;
+package sd2223.trab1.server.REST.Users;
 
 import jakarta.inject.Singleton;
 import jakarta.ws.rs.WebApplicationException;
@@ -13,13 +13,13 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 @Singleton
-public class RESTUsersResource implements UsersService {
+public class RestUsersResourceAntigo implements UsersService {
 
     private final Map<String, User> users = new HashMap<>();
 
-    private static Logger Log = Logger.getLogger(RESTUsersResource.class.getName());
+    private static Logger Log = Logger.getLogger(RestUsersResourceAntigo.class.getName());
 
-    public RESTUsersResource() {
+    public RestUsersResourceAntigo() {
     }
 
     private User auxGetUser(String name, String pwd) {
@@ -143,5 +143,10 @@ public class RESTUsersResource implements UsersService {
         }
 
         return result;
+    }
+
+    @Override
+    public void verifyPassword(String name, String pwd) {
+
     }
 }

@@ -1,13 +1,32 @@
-package sd2223.trab1.server.resources;
+package sd2223.trab1.server.REST.Feeds;
 
+import jakarta.inject.Singleton;
 import sd2223.trab1.api.Message;
 import sd2223.trab1.api.rest.FeedsService;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-public class RESTFeedsServer implements FeedsService {
+@Singleton
+public class RestFeedsResource implements FeedsService {
 
-    public RESTFeedsServer() {
+    // Dominio
+    private String domain;
+
+    // Id
+    private int serverId;
+
+    private final Map<String, Message> allMessages;
+
+    public RestFeedsResource() {
+        allMessages = new HashMap<>();
+    }
+
+    public RestFeedsResource(String domain, int serverId) {
+        this.domain = domain;
+        this.serverId = serverId;
+        allMessages = new HashMap<>();
     }
 
     @Override
