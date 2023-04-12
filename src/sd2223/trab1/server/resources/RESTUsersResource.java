@@ -32,7 +32,7 @@ public class RESTUsersResource implements UsersService {
         var user = users.get(name);
 
         // Check if user exists
-        if (user == null || !user.getName().equals(name)) {
+        if (user == null) {
             //   Log.info("User does not exist.");
             throw new WebApplicationException(Response.Status.NOT_FOUND); // 404
         }
@@ -86,6 +86,11 @@ public class RESTUsersResource implements UsersService {
         synchronized (this) {
             // Ja trata dos erros: 400, 403, 404
             oldUser = auxGetUser(name, pwd);
+
+            if (!name.equals(user.getName())) {
+                // Log.info("UserId or password null.");
+                throw new WebApplicationException(Response.Status.BAD_REQUEST); // 400
+            }
 
             String newDisplayName = user.getDisplayName();
             if (newDisplayName != null)
