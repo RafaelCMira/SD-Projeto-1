@@ -51,6 +51,10 @@ public interface UsersService {
     @Produces(MediaType.APPLICATION_JSON)
     User getUser(@PathParam(NAME) String name, @QueryParam(PWD) String pwd);
 
+    @GET
+    @Path("/{" + NAME + "}/" + PWD)
+    void verifyPassword(@PathParam(NAME) String name, @QueryParam(PWD) String pwd);
+
     /**
      * Modifies the information of a user. Values of null in any field of the user will be
      * considered as if the fields is not to be modified (the name cannot be modified).
@@ -100,7 +104,4 @@ public interface UsersService {
     List<User> searchUsers(@QueryParam(QUERY) String pattern);
 
 
-    @GET
-    @Path("/{" + NAME + "}/" + PWD)
-    void verifyPassword(@PathParam(NAME) String name, @QueryParam(PWD) String pwd);
 }

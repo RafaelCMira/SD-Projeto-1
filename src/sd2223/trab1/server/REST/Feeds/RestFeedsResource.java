@@ -2,36 +2,29 @@ package sd2223.trab1.server.REST.Feeds;
 
 import jakarta.inject.Singleton;
 import sd2223.trab1.api.Message;
+import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.rest.FeedsService;
+import sd2223.trab1.server.REST.RestResource;
+import sd2223.trab1.server.java.JavaFeeds;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Singleton
-public class RestFeedsResource implements FeedsService {
+public class RestFeedsResource extends RestResource implements FeedsService {
 
-    // Dominio
-    private String domain;
-
-    // Id
-    private int serverId;
-
-    private final Map<String, Message> allMessages;
+    final Feeds impl;
 
     public RestFeedsResource() {
-        allMessages = new HashMap<>();
+        this.impl = new JavaFeeds();
     }
 
     public RestFeedsResource(String domain, int serverId) {
-        this.domain = domain;
-        this.serverId = serverId;
-        allMessages = new HashMap<>();
+        this.impl = new JavaFeeds(domain, serverId);
     }
 
     @Override
     public long postMessage(String user, String pwd, Message msg) {
-        return 0;
+        return super.fromJavaResult(impl.postMessage(user, pwd, msg));
     }
 
     @Override

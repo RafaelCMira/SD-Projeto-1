@@ -23,11 +23,11 @@ public interface Discovery {
     /**
      * Get discovered URIs for a given service name
      *
-     * @param serviceDomain - name and domain of the service
+     * @param domainService - domain and name of the service (format domain:serviceName)
      * @param minReplies    - minimum number of requested URIs. Blocks until the number is satisfied.
      * @return array with the discovered URIs for the given service name.
      */
-    public URI[] knownUrisOf(String serviceDomain, int minReplies);
+    public URI[] knownUrisOf(String domainService, int minReplies);
 
     /**
      * Get the instance of the Discovery service
