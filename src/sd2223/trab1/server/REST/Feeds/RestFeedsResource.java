@@ -14,6 +14,7 @@ public class RestFeedsResource extends RestResource implements FeedsService {
 
     final Feeds impl;
 
+
     public RestFeedsResource() {
         this.impl = new JavaFeeds();
     }
@@ -34,12 +35,12 @@ public class RestFeedsResource extends RestResource implements FeedsService {
 
     @Override
     public Message getMessage(String user, long mid) {
-        return null;
+        return super.fromJavaResult(impl.getMessage(user, mid));
     }
 
     @Override
     public List<Message> getMessages(String user, long time) {
-        return null;
+        return super.fromJavaResult(impl.getMessages(user, time));
     }
 
     @Override

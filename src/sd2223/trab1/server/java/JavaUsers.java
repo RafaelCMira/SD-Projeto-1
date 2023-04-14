@@ -146,7 +146,12 @@ public class JavaUsers implements Users {
 
     @Override
     public Result<Void> verifyPassword(String name, String pwd) {
-        var result = getUser(name, pwd);
+        Result<User> result;
+        synchronized (this) {
+            result = auxGetUser(name, pwd);
+            //result = getUser(name, pwd);
+        }
+
         if (result.isOK())
             return Result.ok();
         else

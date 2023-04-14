@@ -23,11 +23,11 @@ public interface Discovery {
     /**
      * Get discovered URIs for a given service name
      *
-     * @param domainService - domain and name of the service (format domain:serviceName)
+     * @param serviceDomain - serviceName and domain (format service.domain)
      * @param minReplies    - minimum number of requested URIs. Blocks until the number is satisfied.
      * @return array with the discovered URIs for the given service name.
      */
-    public URI[] knownUrisOf(String domainService, int minReplies);
+    public URI[] knownUrisOf(String serviceDomain, int minReplies);
 
     /**
      * Get the instance of the Discovery service
@@ -54,14 +54,14 @@ class DiscoveryImpl implements Discovery {
     static final InetSocketAddress DISCOVERY_ADDR = new InetSocketAddress("224.0.0.1", 5000);
 
     // Used separate the two fields that make up a service announcement.
-    private static final String DELIMITER = "\t";
+    private static final String DELIMITER_TAB = "\t";
 
     // Used separate the domain from the rest
-    private static final String DELIMITER_2 = ":";
+    private static final String DELIMITER_2_DOTS = ":";
 
     private static final int MAX_DATAGRAM_SIZE = 65536;
 
-    // Stores the received announcements by serviceName. (Adicionado)
+    // Stores the received announcements by serviceName (format service.domain)
     private Map<String, List<URI>> announcements = new HashMap<>();
 
     private static Discovery singleton;
@@ -79,9 +79,9 @@ class DiscoveryImpl implements Discovery {
 
     @Override
     public void announce(String domain, String serviceName, String serviceURI) {
-        // Log.info(String.format("Starting Discovery announcements on: %s for: %s -> %s\n", DISCOVERY_ADDR, serviceName, serviceURI));
-
-        var pktBytes = String.format("%s%s%s%s%s", domain, DELIMITER_2, serviceName, DELIMITER, serviceURI).getBytes();
+        Log.info(String.format("Starting Discovery announcements on: %s for: %s -> %s\n", DISCOVERY_ADDR, serviceName + "." + domain,
+                serviceURI));
+        var pktBytes = String.format("%s%s%s%s%s", domain, DELIMITER_2_DOTS, serviceName, DELIMITER_TAB, serviceURI).getBytes();
         var pkt = new DatagramPacket(pktBytes, pktBytes.length, DISCOVERY_ADDR);
 
         // start thread to send periodic announcements
@@ -103,24 +103,42 @@ class DiscoveryImpl implements Discovery {
 
 
     @Override
-    public URI[] knownUrisOf(String serviceName, int minEntries) {
+    public URI[] knownUrisOf(String serviceDomain, int minEntries) {
         // Wait for a minimum number of replies
-        while (announcements.getOrDefault(serviceName, Collections.emptyList()).size() < minEntries) {
+        while (announcements.get(serviceDomain) == null) {
+            try {
+                Thread.sleep(DISCOVERY_RETRY_TIMEOUT);
+            } catch (InterruptedException e) {
+                // ignore
+            }
+        }
+
+        while (announcements.get(serviceDomain).size() < minEntries) {
+            try {
+                Thread.sleep(DISCOVERY_RETRY_TIMEOUT);
+            } catch (InterruptedException e) {
+                // ignore
+            }
+        }
+
+        /*
+        while (announcements.getOrDefault(serviceDomain, Collections.emptyList()).size() < minEntries) {
             try {
                 Thread.sleep(DISCOVERY_RETRY_TIMEOUT);
             } catch (InterruptedException e) {
             }
-        }
+        }*/
 
         // Return the known URIs for the service name
         //   List<URI> uris = announcements.getOrDefault(serviceName, Collections.emptyList());
-        List<URI> uris = announcements.get(serviceName);
-        return uris.toArray(new URI[0]);
+        List<URI> uris = announcements.get(serviceDomain);
+
+        URI[] array = new URI[uris.size()];
+        uris.toArray(array);
+        return array;
     }
 
     private void startListener() {
-        // Log.info(String.format("Starting discovery on multicast group: %s, port: %d\n", DISCOVERY_ADDR.getAddress(), DISCOVERY_ADDR.getPort()));
-
         new Thread(() -> {
             try (var ms = new MulticastSocket(DISCOVERY_ADDR.getPort())) {
                 ms.joinGroup(DISCOVERY_ADDR, NetworkInterface.getByInetAddress(InetAddress.getLocalHost()));
@@ -130,21 +148,25 @@ class DiscoveryImpl implements Discovery {
                         ms.receive(pkt);
 
                         var msg = new String(pkt.getData(), 0, pkt.getLength());
-                        // Log.info(String.format("Received: %s", msg));
+                        //   Log.info(String.format("Received: %s", msg));
 
-                        var serviceAndDomain = msg.split(DELIMITER_2);
-                        if (serviceAndDomain.length == 2) {
-                            var domain = serviceAndDomain[0];
-                            var parts = serviceAndDomain[1].split(DELIMITER);
+                        var parts = msg.split(DELIMITER_TAB);
 
-                            if (parts.length == 2) {
-                                var serviceName = parts[0];
-                                var uri = URI.create(parts[1]);
-                                String serviceDomain = serviceName + "." + domain;
-                                // Store the announcement for the service name
-                                announcements.computeIfAbsent(serviceDomain, k -> new ArrayList<>()).add(uri);
-                            }
+                        var parts1 = parts[0].split(DELIMITER_2_DOTS);
+
+                        var domain = parts1[0];
+                        var service = parts1[1];
+
+                        var serviceDomain = service + "." + domain;
+                        URI uri = URI.create(parts[1]);
+
+                        List<URI> list = announcements.get(serviceDomain);
+                        if (list == null) {
+                            list = new LinkedList<>();
+                            announcements.put(serviceDomain, list);
                         }
+                        list.add(uri);
+                        //announcements.computeIfAbsent(serviceDomain, k -> new ArrayList<>()).add(uri);
                     } catch (Exception x) {
                         x.printStackTrace();
                     }

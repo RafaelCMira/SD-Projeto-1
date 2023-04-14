@@ -10,7 +10,6 @@ import java.net.URI;
 import java.util.logging.Logger;
 
 public class RestFeedsServer {
-
     private static Logger Log = Logger.getLogger(RestUsersServer.class.getName());
 
     static {
@@ -28,22 +27,17 @@ public class RestFeedsServer {
 
         try {
             ResourceConfig config = new ResourceConfig();
-            config.register(new RestFeedsResource(domain, id));
+            RestFeedsResource obj = new RestFeedsResource(domain, id);
+            config.register(obj.getClass());
             // config.register(CustomLoggingFilter.class);
-
             String ip = InetAddress.getLocalHost().getHostAddress();
             String serverURI = String.format(SERVER_URI_FMT, ip, PORT);
             JdkHttpServerFactory.createHttpServer(URI.create(serverURI), config);
 
             Discovery discovery = Discovery.getInstance();
             discovery.announce(domain, SERVICE, serverURI);
-
-            Log.info(String.format("%s.%s Server ready @ %s\n", SERVICE, domain, serverURI));
-
         } catch (Exception e) {
             Log.severe(e.getMessage());
         }
-
     }
-
 }

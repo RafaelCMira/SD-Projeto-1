@@ -1,8 +1,10 @@
 package sd2223.trab1.server.REST.Users;
 
+import jakarta.inject.Singleton;
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import sd2223.trab1.Discovery;
+import sd2223.trab1.server.REST.Feeds.RestFeedsResource;
 
 import java.net.InetAddress;
 import java.net.URI;
@@ -26,7 +28,8 @@ public class RestUsersServer {
 
         try {
             ResourceConfig config = new ResourceConfig();
-            config.register(RestUsersResource.class);
+            RestUsersResource obj = new RestUsersResource();
+            config.register(obj.getClass());
             // config.register(CustomLoggingFilter.class);
 
             String ip = InetAddress.getLocalHost().getHostAddress();
@@ -35,8 +38,6 @@ public class RestUsersServer {
 
             Discovery discovery = Discovery.getInstance();
             discovery.announce(domain, SERVICE, serverURI);
-
-            //  Log.info(String.format("%s.%s Server ready @ %s\n", SERVICE, domain, serverURI));
 
         } catch (Exception e) {
             Log.severe(e.getMessage());

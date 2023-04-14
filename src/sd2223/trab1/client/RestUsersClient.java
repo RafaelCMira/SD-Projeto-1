@@ -1,5 +1,6 @@
 package sd2223.trab1.client;
 
+import jakarta.inject.Singleton;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.GenericType;
