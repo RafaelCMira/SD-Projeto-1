@@ -28,10 +28,6 @@ public class RestUsersResource extends RestResource implements UsersService {
         return super.fromJavaResult(impl.getUser(name, pwd));
     }
 
-    @Override
-    public void verifyPassword(String name, String pwd) {
-        super.fromJavaResult(impl.verifyPassword(name, pwd));
-    }
 
     @Override
     public User updateUser(String name, String pwd, User user) {
@@ -47,6 +43,17 @@ public class RestUsersResource extends RestResource implements UsersService {
     public List<User> searchUsers(String pattern) {
         return super.fromJavaResult(impl.searchUsers(pattern));
     }
+
+    @Override
+    public void verifyPassword(String name, String pwd) {
+        super.fromJavaResult(impl.verifyPassword(name, pwd));
+    }
+
+    @Override
+    public void checkUser(String name) {
+        super.fromJavaResult(impl.checkUser(name));
+    }
+
 
 }
 

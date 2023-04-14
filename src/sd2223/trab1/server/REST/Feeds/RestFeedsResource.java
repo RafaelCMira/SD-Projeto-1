@@ -45,7 +45,7 @@ public class RestFeedsResource extends RestResource implements FeedsService {
 
     @Override
     public void subUser(String user, String userSub, String pwd) {
-
+        super.fromJavaResult(impl.subUser(user, userSub, pwd));
     }
 
     @Override
@@ -55,6 +55,6 @@ public class RestFeedsResource extends RestResource implements FeedsService {
 
     @Override
     public List<String> listSubs(String user) {
-        return null;
+        return super.fromJavaResult(impl.listSubs(user));
     }
 }

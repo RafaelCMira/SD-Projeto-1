@@ -157,4 +157,23 @@ public class JavaUsers implements Users {
         else
             return Result.error(result.error());
     }
+
+    @Override
+    public Result<Void> checkUser(String name) {
+        // Check if user is valid
+        if (name == null) {
+            // Log.info("UserId or password null.");
+            return Result.error(ErrorCode.BAD_REQUEST); // 400
+        }
+
+        var user = users.get(name);
+
+        // Check if user exists
+        if (user == null) {
+            //   Log.info("User does not exist.");
+            return Result.error(ErrorCode.NOT_FOUND); // 404
+        }
+
+        return Result.ok();
+    }
 }

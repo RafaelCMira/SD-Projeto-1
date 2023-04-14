@@ -18,5 +18,5 @@ public interface Feeds {
 
     Result<Void> unsubscribeUser(String user, String userSub, String pwd);
 
-    Result<List<Message>> listSubs(String user);
+    Result<List<String>> listSubs(String user);
 }

@@ -1,9 +1,7 @@
 package sd2223.trab1.client;
 
-import jakarta.inject.Singleton;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.WebTarget;
-import jakarta.ws.rs.core.GenericType;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import sd2223.trab1.api.User;
@@ -34,11 +32,6 @@ public class RestUsersClient extends RestClient implements Users {
     }
 
     @Override
-    public Result<Void> verifyPassword(String name, String pwd) {
-        return super.reTry(() -> clt_verifyPassword(name, pwd));
-    }
-
-    @Override
     public Result<User> updateUser(String name, String pwd, User user) {
         return super.reTry(() -> clt_updateUser(name, pwd, user));
     }
@@ -51,6 +44,16 @@ public class RestUsersClient extends RestClient implements Users {
     @Override
     public Result<List<User>> searchUsers(String pattern) {
         return null;
+    }
+
+    @Override
+    public Result<Void> verifyPassword(String name, String pwd) {
+        return super.reTry(() -> clt_verifyPassword(name, pwd));
+    }
+
+    @Override
+    public Result<Void> checkUser(String name) {
+        return super.reTry(() -> clt_checkUser(name));
     }
 
 
@@ -73,17 +76,6 @@ public class RestUsersClient extends RestClient implements Users {
         return super.toJavaResult(r, User.class);
     }
 
-    private Result<Void> clt_verifyPassword(String name, String pwd) {
-        Response r = target
-                .path(name)
-                .path(UsersService.PWD)
-                .queryParam(UsersService.PWD, pwd)
-                .request()
-                .get();
-
-        return super.toJavaResult(r, Void.class);
-    }
-
     private Result<User> clt_updateUser(String name, String pwd, User user) {
         Response r = target
                 .path(name)
@@ -104,6 +96,26 @@ public class RestUsersClient extends RestClient implements Users {
                 .delete();
 
         return super.toJavaResult(r, User.class);
+    }
+
+    private Result<Void> clt_verifyPassword(String name, String pwd) {
+        Response r = target
+                .path(name)
+                .path(UsersService.PWD)
+                .queryParam(UsersService.PWD, pwd)
+                .request()
+                .get();
+
+        return super.toJavaResult(r, Void.class);
+    }
+
+    private Result<Void> clt_checkUser(String name) {
+        Response r = target
+                .path(name)
+                .request()
+                .get();
+
+        return super.toJavaResult(r, Void.class);
     }
 
 
