@@ -13,8 +13,7 @@ import java.util.List;
 public class RestFeedsResource extends RestResource implements FeedsService {
 
     final Feeds impl;
-
-
+    
     public RestFeedsResource() {
         this.impl = new JavaFeeds();
     }
@@ -50,7 +49,7 @@ public class RestFeedsResource extends RestResource implements FeedsService {
 
     @Override
     public void unsubscribeUser(String user, String userSub, String pwd) {
-
+        super.fromJavaResult(impl.unsubscribeUser(user, userSub, pwd));
     }
 
     @Override
