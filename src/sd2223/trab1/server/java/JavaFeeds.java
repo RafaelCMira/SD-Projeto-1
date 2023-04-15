@@ -23,7 +23,7 @@ public class JavaFeeds implements Feeds {
     private final Map<Long, Message> allMessages = new HashMap<>();
 
     // String -> userName; Mapa Long -> id; Message
-    private final Map<String, Map<Long, Message>> myFeed = new HashMap<>();
+    private final Map<String, Map<Long, Message>> allFeeds = new HashMap<>();
 
     // String -> userName; Mapa Long -> id; Message
     private final Map<String, SortedMap<Long, Message>> userMessagesByTime = new HashMap<>();
@@ -89,6 +89,57 @@ public class JavaFeeds implements Feeds {
         return result;
     }
 
+    private void putMessageOnSelf(String user, Message msg) {
+        Map<Long, Message> userFeed = allFeeds.get(user);
+
+        if (userFeed == null) {
+            userFeed = new HashMap<>();
+            allFeeds.put(user, userFeed);
+        }
+        userFeed.put(msg.getId(), msg);
+
+        SortedMap<Long, Message> uMessagesByTime = userMessagesByTime.get(user);
+
+        if (uMessagesByTime == null) {
+            uMessagesByTime = new TreeMap<>();
+            userMessagesByTime.put(user, uMessagesByTime);
+        }
+        uMessagesByTime.put(msg.getCreationTime(), msg);
+    }
+
+    // Metodo que coloca uma msg em todos os followers de alguem
+    private void postMessageInFollowers(String user, Message msg) {
+        // Vou buscar a lista dos meus seguidores
+        List<String> followers = myFollowers.get(user);
+
+
+        if (followers == null) {
+            followers = new LinkedList<>();
+            myFollowers.put(user, followers);
+        }
+
+        // Colocar a msg no follower
+        for (String follower : followers) {
+
+            // Assim ja coloca em ambas as estuturas
+            putMessageOnSelf(follower, msg);
+
+            /*
+            // Vou ao feed de msg do follower e meto a msg
+            Map<Long, Message> followerFeed = allFeeds.get(follower);
+
+            // Vejo se o feed esta a null
+            if (followerFeed == null) {
+                followerFeed = new HashMap<>();
+                allFeeds.put(follower, followerFeed);
+            }
+            followerFeed.put(msg.getId(), msg);*/
+
+
+        }
+    }
+
+
     @Override
     public Result<Long> postMessage(String user, String pwd, Message msg) {
         if (msg == null || user == null || pwd == null) {
@@ -108,52 +159,19 @@ public class JavaFeeds implements Feeds {
             allMessages.put(id, msg);
 
             // Colocar a msg no user correto
-            Map<Long, Message> uMessages = myFeed.get(user);
-
-            if (uMessages == null) {
-                uMessages = new HashMap<>();
-                myFeed.put(user, uMessages);
-            }
-            uMessages.put(id, msg);
-
-            SortedMap<Long, Message> uMessagesByTime = userMessagesByTime.get(user);
-
             // Colocar a msg no user correto, no map ordenado por time
-            if (uMessagesByTime == null) {
-                uMessagesByTime = new TreeMap<>();
-                userMessagesByTime.put(user, uMessagesByTime);
-            }
-            uMessagesByTime.put(msg.getCreationTime(), msg);
+            putMessageOnSelf(user, msg);
 
             // Coloco a msg no feed de todos os users que me seguem
-            List<String> followers = myFollowers.get(user);
-            if (followers == null) {
-                followers = new LinkedList<>();
-                myFollowers.put(user, followers);
-            }
-
-            for (String i : followers) {
-                postMessageInFollowers(i, msg);
-            }
-
+            postMessageInFollowers(user, msg);
 
             return Result.ok(id);
+
         } else {
             return Result.error(result.error());
         }
     }
 
-    private void postMessageInFollowers(String follower, Message msg) {
-        // Colocar a msg no follower
-        Map<Long, Message> uMessages = myFeed.get(follower);
-
-        if (uMessages == null) {
-            uMessages = new HashMap<>();
-            myFeed.put(follower, uMessages);
-        }
-
-        uMessages.put(msg.getId(), msg);
-    }
 
     // Metodo auxiliar para gerar id's
     private long generateId() {
@@ -172,7 +190,7 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Message> getMessage(String user, long mid) {
-        Map<Long, Message> uMessages = myFeed.get(user);
+        Map<Long, Message> uMessages = allFeeds.get(user);
         // Se o user nao existe
         if (uMessages == null) {
             return Result.error(Result.ErrorCode.NOT_FOUND); // 404
@@ -189,14 +207,38 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<List<Message>> getMessages(String user, long time) {
-        SortedMap<Long, Message> uMessagesByTime = userMessagesByTime.get(user);
 
-        // User nao existe
-        if (uMessagesByTime == null) {
-            return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+        // User nao existe (mentira, isto ta errado porque o user pode existir no USERs server), quando crio um user no userServer, tenho que lhe criar um feed (a melhor forma de fazer isto e fazer um pedido ao feedsServer quando crio um user no USERS, mas para funcionar agora vou so fazer um pedido para ver se ele existe do feeds para o USERS e se existe entao crio um feed se ele ainda nao o tiver
+
+        var result = auxCheckUser(user);
+
+        if (result.isOK()) {
+            Map<Long, Message> userFeed = allFeeds.get(user);
+            if (userFeed == null) {
+                userFeed = new HashMap<>();
+                allFeeds.put(user, userFeed);
+            }
+
+            SortedMap<Long, Message> uMessagesByTime = userMessagesByTime.get(user);
+
+            if (uMessagesByTime == null) {
+                uMessagesByTime = new TreeMap<>();
+                userMessagesByTime.put(user, uMessagesByTime);
+            }
+        } else {
+            return Result.error(result.error());
         }
 
+
+        SortedMap<Long, Message> uMessagesByTime = userMessagesByTime.get(user);
+
         List<Message> list = new LinkedList<>();
+
+        /*
+        if (time == 0) {
+            uMessagesByTime.forEach((id, msg) -> list.add(msg));
+            return Result.ok(list);
+        }*/
 
         uMessagesByTime.forEach((id, msg) -> {
             if (msg.getCreationTime() > time) { // esta correto, e maior que tenho de verificar
@@ -217,22 +259,20 @@ public class JavaFeeds implements Feeds {
         result = auxVerifyPassword(user, pwd);
         if (!result.isOK()) return Result.error(result.error());
 
-        // Adiciono o userSub as subscricoes do user
+        // Adiciono o userSub as minhas subscricoes
         List<String> subs = mySubscriptions.get(user);
         if (subs == null) {
             subs = new LinkedList<>();
             mySubscriptions.put(user, subs);
         }
-
         subs.add(userSub);
 
-        // Adiciono o user aos folowers do userSub
+        // Adiciono o user aos Followers do userSub
         List<String> followers = myFollowers.get(userSub);
         if (followers == null) {
             followers = new LinkedList<>();
             myFollowers.put(userSub, followers);
         }
-
         followers.add(user);
 
         return Result.ok();

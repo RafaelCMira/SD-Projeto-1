@@ -101,11 +101,22 @@ public interface UsersService {
     List<User> searchUsers(@QueryParam(QUERY) String pattern);
 
 
+    /**
+     * Verifica a password do user entre outras coisa. Verifica tambem se o user existe claro.
+     *
+     * @param name nome to user
+     * @param pwd  password do user
+     */
     @GET
     @Path("/{" + NAME + "}/" + PWD)
     void verifyPassword(@PathParam(NAME) String name, @QueryParam(PWD) String pwd);
 
 
+    /**
+     * Verifica se um user existe.
+     *
+     * @param name nome do user
+     */
     @GET
     @Path("/{" + NAME + "}")
     void checkUser(@PathParam(NAME) String name);
