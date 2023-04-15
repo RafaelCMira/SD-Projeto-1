@@ -28,7 +28,7 @@ public class JavaFeeds implements Feeds {
 
     // String -> userName; Mapa Long -> id; Message
     // Feeds de todos os users do dominio
-    private final Map<String, Map<Long, Message>> allFeeds = new HashMap<>();
+    private final Map<String, Map<Long, Message>> feeds = new HashMap<>();
 
     // String -> userName; List String -> userName de quem sigo
     // Quem estou a seguir
@@ -91,12 +91,13 @@ public class JavaFeeds implements Feeds {
         return result;
     }
 
-    private void putMessageOnSelf(String user, Message msg) {
-        Map<Long, Message> userFeed = allFeeds.get(user);
+    // Coloca uma msg num user especifico
+    private void putMessageOnUser(String user, Message msg) {
+        Map<Long, Message> userFeed = feeds.get(user);
 
         if (userFeed == null) {
             userFeed = new HashMap<>();
-            allFeeds.put(user, userFeed);
+            feeds.put(user, userFeed);
         }
         userFeed.put(msg.getId(), msg);
     }
@@ -111,10 +112,18 @@ public class JavaFeeds implements Feeds {
             myFollowers.put(user, followers);
         }
 
+        Iterator<String> seguidores = followers.iterator();
+
+        while (seguidores.hasNext()) {
+            String seguidor = seguidores.next();
+            putMessageOnUser(seguidor, msg);
+        }
+
+        /*
         // Colocar a msg no follower
         for (String follower : followers) {
-            putMessageOnSelf(follower, msg);
-        }
+            putMessageOnUser(follower, msg);
+        }*/
     }
 
 
@@ -138,7 +147,7 @@ public class JavaFeeds implements Feeds {
 
             // Colocar a msg no user correto
             // Colocar a msg no user correto, no map ordenado por time
-            putMessageOnSelf(user, msg);
+            putMessageOnUser(user, msg);
 
             // Coloco a msg no feed de todos os users que me seguem
             postMessageInFollowers(user, msg);
@@ -161,10 +170,10 @@ public class JavaFeeds implements Feeds {
     }
 
     private Result<Void> auxRemoveFromFeed(String user, long mid) {
-        Map<Long, Message> userFeed = allFeeds.get(user);
+        Map<Long, Message> userFeed = feeds.get(user);
         if (userFeed == null) {
             userFeed = new HashMap<>();
-            allFeeds.put(user, userFeed);
+            feeds.put(user, userFeed);
         }
 
         // Verifica se o user tem a msg no feed
@@ -193,7 +202,7 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Message> getMessage(String user, long mid) {
-        Map<Long, Message> uMessages = allFeeds.get(user);
+        Map<Long, Message> uMessages = feeds.get(user);
         // Se o user nao existe
         if (uMessages == null) {
             return Result.error(Result.ErrorCode.NOT_FOUND); // 404
@@ -211,16 +220,18 @@ public class JavaFeeds implements Feeds {
     @Override
     public Result<List<Message>> getMessages(String user, long time) {
 
-        // User nao existe (mentira, isto ta errado porque o user pode existir no USERs server), quando crio um user no userServer, tenho que lhe criar um feed (a melhor forma de fazer isto e fazer um pedido ao feedsServer quando crio um user no USERS, mas para funcionar agora vou so fazer um pedido para ver se ele existe do feeds para o USERS e se existe entao crio um feed se ele ainda nao o tiver
+        // User nao existe (mentira, isto ta errado porque o user pode existir no USERs server), quando crio um user no userServer,
+        // tenho que lhe criar um feed (a melhor forma de fazer isto e fazer um pedido ao feedsServer quando crio um user no USERS,
+        // mas para funcionar agora vou so fazer um pedido para ver se ele existe do feeds para o USERS e se existe entao crio um feed se ele ainda nao o tiver
 
         var result = auxCheckUser(user);
         List<Message> list = new LinkedList<>();
 
         if (result.isOK()) {
-            Map<Long, Message> userFeed = allFeeds.get(user);
+            Map<Long, Message> userFeed = feeds.get(user);
             if (userFeed == null) {
                 userFeed = new HashMap<>();
-                allFeeds.put(user, userFeed);
+                feeds.put(user, userFeed);
             }
 
             userFeed.forEach((id, msg) -> {
@@ -264,6 +275,8 @@ public class JavaFeeds implements Feeds {
         return Result.ok();
     }
 
+    // A partir do momento que faco unsub deixo de receber msg de quem deixei se subscrever
+    // Isto nao ta a acontecer. Tenho um bug qq que nao esta a assumir que deixei de seguir a pessoa
     @Override
     public Result<Void> unsubscribeUser(String user, String userSub, String pwd) {
         // user vai tirar a sub de userSub
@@ -278,7 +291,17 @@ public class JavaFeeds implements Feeds {
 
         // Removo a sub de userSub
         List<String> subs = mySubscriptions.get(user);
-        subs.remove(userSub); // este res e true (testei com o if abaixo)
+        if (subs == null) {
+            subs = new LinkedList<>();
+            mySubscriptions.put(user, subs);
+        }
+
+        while (subs.remove(userSub)) {
+
+        }
+
+
+        // este res e true (testei com o if abaixo)
         // portanto ele remove quando faz unsub, logo nao percebo porque e que quando faco post o programa mete no user que acabou de ser removido
         /*
         if (res == true) {
@@ -288,25 +311,16 @@ public class JavaFeeds implements Feeds {
         */
 
         // Removo o follow de user
-        List<String> follows = myFollowers.get(userSub);
-        boolean res = follows.remove(user); // este res e true (testei com o if abaixo)
-        /*
-        if (res == true) {
-            return Result.error(Result.ErrorCode.CONFLICT);
-        } else
-            return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
-        */
+        List<String> followers = myFollowers.get(userSub);
+        if (followers == null) {
+            followers = new LinkedList<>();
+            myFollowers.put(userSub, followers);
+        }
 
-        Map<Long, Message> userFeed = allFeeds.get(user);
+        while (followers.remove(user)) {
 
-        userFeed.forEach((id, msg) -> {
-            if (msg.getUser().equals(userSub)) {
-                userFeed.remove(id);
-            }
-        });
+        }
 
-        // A partir do momento que faco unsub deixo de receber msg de quem deixei se subscrever
-        // Isto nao ta a acontecer. Tenho um bug qq que nao esta a assumir que deixei de seguir a pessoa
 
         return Result.ok();
     }
