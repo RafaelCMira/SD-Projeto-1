@@ -30,15 +30,6 @@ public class JavaFeeds implements Feeds {
     // Feeds de todos os users do dominio
     private final Map<String, Map<Long, Message>> feeds = new HashMap<>();
 
-    // String -> userName; String -> quemSigoName; Void porque nao quero guardar nada
-    // Quem estou a seguir
-    private final Map<String, Map<String, Void>> mySubscriptions2 = new HashMap<>();
-
-    // String -> userName; String -> followerName; Void porque nao quero guardar nada
-    // Quem me segue
-    private final Map<String, Map<String, Void>> myFollowers2 = new HashMap<>();
-
-    // $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
     // String -> userName; List String -> userName de quem sigo
     // Quem estou a seguir
@@ -123,21 +114,10 @@ public class JavaFeeds implements Feeds {
             myFollowers.put(user, followers);
         }
 
-        Iterator<String> seguidores = followers.iterator();
-
-        while (seguidores.hasNext()) {
-            String seguidor = seguidores.next();
-            putMessageInUser(seguidor, msg);
+        for (String follower : followers) {
+            putMessageInUser(follower, msg);
         }
 
-
-        Map<String, Void> followers2 = myFollowers2.get(user);
-        if (followers2 == null) {
-            followers2 = new HashMap<>();
-            myFollowers2.put(user, followers2);
-        }
-
-        followers2.forEach((id, unused) -> putMessageInUser(id, msg));
     }
 
     @Override
@@ -283,20 +263,6 @@ public class JavaFeeds implements Feeds {
         followers.add(user);
 
 
-        Map<String, Void> subs2 = mySubscriptions2.get(user);
-        if (subs2 == null) {
-            subs2 = new HashMap<>();
-            mySubscriptions2.put(user, subs2);
-        }
-        subs2.put(userSub, null);
-
-        Map<String, Void> followers2 = myFollowers2.get(userSub);
-        if (followers2 == null) {
-            followers2 = new HashMap<>();
-            myFollowers2.put(user, followers2);
-        }
-        followers2.put(user, null);
-
         return Result.ok();
     }
 
@@ -335,23 +301,7 @@ public class JavaFeeds implements Feeds {
         while (followers.remove(user)) {
 
         }
-
-
-        Map<String, Void> subs2 = mySubscriptions2.get(user);
-        if (subs2 == null) {
-            subs2 = new HashMap<>();
-            mySubscriptions2.put(user, subs2);
-        }
-        subs2.remove(userSub);
-
-        Map<String, Void> followers2 = myFollowers2.get(userSub);
-        if (followers2 == null) {
-            followers2 = new HashMap<>();
-            myFollowers2.put(userSub, followers2);
-        }
-        followers2.remove(user);
-
-
+        
         return Result.ok();
     }
 
@@ -362,23 +312,9 @@ public class JavaFeeds implements Feeds {
             return Result.error(result.error()); // 404
         }
 
-        List<String> list = new LinkedList<>();
-
-        Map<String, Void> subs = mySubscriptions2.get(user);
-
-        if (subs == null) return Result.ok(list);
-
-
-        subs.forEach((id, unused) -> {
-            list.add(id);
-        });
-
-        list.addAll(subs.keySet());
-
-        /*
         List<String> list = mySubscriptions.get(user);
 
-        if (list == null) return Result.ok(new LinkedList<>()); */
+        if (list == null) return Result.ok(new LinkedList<>());
 
         return Result.ok(list);
     }
