@@ -100,19 +100,6 @@ public interface FeedsService {
 
 
     /**
-     * Propaga uma subscricao de um user para um userSub de outro server
-     * // Acrecentar user aos followers de userSub
-     *
-     * @param user    user que propaga
-     * @param userSub user being accessed (format user@domain)
-     * @return 204 if ok
-     */
-    @PUT
-    @Path("/sub/{" + USER + "}/{" + USERSUB + "}")
-    void propagateSub(@PathParam(USER) String user, @PathParam(USER) String userSub);
-
-
-    /**
      * UnSubscribe a user
      * A user must contact the server of her domain directly (i.e., this operation should not be
      * propagated to other domain)
@@ -127,8 +114,7 @@ public interface FeedsService {
     @DELETE
     @Path("/sub/{" + USER + "}/{" + USERSUB + "}")
     void unsubscribeUser(@PathParam(USER) String user, @PathParam(USERSUB) String userSub, @QueryParam(PWD) String pwd);
-
-
+    
     /**
      * Subscribed users.
      *
@@ -151,18 +137,20 @@ public interface FeedsService {
     @Path("/{" + USER + "}")
     void deleteUserFeed(@PathParam(USER) String user);
 
-
     /**
-     * Propaga uma msg para um user de outro server.
+     * Propaga uma subscricao de um user para um userSub de outro server
+     * // Acrecentar user aos followers de userSub
      *
-     * @param user user being accessed (format user@domain)
-     * @param msg  the message object to be posted to the server
+     * @param user    user que propaga    (format user@domain)
+     * @param userSub user being accessed (format user@domain)
      * @return 204 if ok
      */
     @POST
+    @Path("/suber/{" + USER + "}/{" + USERSUB + "}")
+    void propagateSub(@PathParam(USER) String user, @PathParam(USERSUB) String userSub);
+
+    @POST
     @Consumes(MediaType.APPLICATION_JSON)
-    @Path("/{" + USER + "}")
-    void propagateMessage(@PathParam(USER) String user, Message msg);
-
-
+    @Path("/propagate")
+    void propagateMsg(@PathParam(USER) String user, Message msg);
 }

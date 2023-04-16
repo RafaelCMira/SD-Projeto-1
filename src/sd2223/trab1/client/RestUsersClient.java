@@ -2,6 +2,7 @@ package sd2223.trab1.client;
 
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.GenericType;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import sd2223.trab1.api.User;
@@ -43,7 +44,7 @@ public class RestUsersClient extends RestClient implements Users {
 
     @Override
     public Result<List<User>> searchUsers(String pattern) {
-        return null;
+        return super.reTry(() -> clt_searchUser(pattern));
     }
 
     @Override
@@ -96,6 +97,16 @@ public class RestUsersClient extends RestClient implements Users {
                 .delete();
 
         return super.toJavaResult(r, User.class);
+    }
+
+    private Result<List<User>> clt_searchUser(String pattern) {
+        Response r = target
+                .queryParam(UsersService.QUERY, pattern)
+                .request()
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
+        return super.toJavaResult(r, new GenericType<List<User>>() {
+        });
     }
 
     private Result<Void> clt_verifyPassword(String name, String pwd) {
