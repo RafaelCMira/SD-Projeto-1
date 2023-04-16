@@ -6,7 +6,9 @@ import sd2223.trab1.api.Message;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Users;
+import sd2223.trab1.client.RestFeedsClient;
 import sd2223.trab1.client.RestUsersClient;
+import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 import sd2223.trab1.server.REST.Users.RestUsersServer;
 
 import java.net.URI;
@@ -71,6 +73,7 @@ public class JavaFeeds implements Feeds {
         return result;
     }
 
+
     private Result<Void> auxCheckUser(String user) {
         var parts = user.split(DELIMITER);
         String userName = parts[0];
@@ -93,8 +96,68 @@ public class JavaFeeds implements Feeds {
         return result;
     }
 
+    private Result<Void> auxPropagateMsg(String user, Message msg) {
+        var parts = user.split(DELIMITER);
+        String userDomain = parts[1];
+
+        // Descubro onde esta o servidor
+        Discovery discovery = Discovery.getInstance();
+        String serviceDomain = RestFeedsServer.SERVICE + "." + userDomain;
+
+        // Obtenho o URI
+        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
+        URI serverUri = uris[0];
+
+        // Obtenho o servidor
+        Feeds feedsServer = new RestFeedsClient(serverUri);
+
+        // Faço um pedido para propagar a msg para o user de outro dominio
+        var result = feedsServer.propagateMsg(user, msg);
+
+        if (result.isOK())
+            return Result.ok();
+        else
+            return Result.error(result.error());
+    }
+
+
+    private Result<Void> auxPropagateSub(String user, String userSub) {
+        var parts = userSub.split(DELIMITER);
+        String userSubDomain = parts[1];
+
+        // Descubro onde esta o servidor
+        Discovery discovery = Discovery.getInstance();
+        String serviceDomain = RestFeedsServer.SERVICE + "." + userSubDomain;
+
+        // Obtenho o URI
+        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
+        URI serverUri = uris[0];
+
+        // Obtenho o servidor
+        Feeds feedsServer = new RestFeedsClient(serverUri);
+
+        // Faço um pedido para propagar a msg para o user de outro dominio
+
+        var result = feedsServer.propagateSub(user, userSub);
+
+        if (result.isOK())
+            return Result.ok();
+        else
+            return Result.error(result.error());
+    }
+
+
     // Coloca uma msg num user especifico
-    private void putMessageInUser(String user, Message msg) {
+    private Result<Void> putMessageInUser(String user, Message msg) {
+        var parts = user.split(DELIMITER);
+
+        String userDomain = parts[1];
+
+        if (!userDomain.equals(msg.getDomain())) {
+            var result = auxPropagateMsg(user, msg);
+            if (!result.isOK()) return Result.error(result.error());
+        }
+
         Map<Long, Message> userFeed = feeds.get(user);
 
         if (userFeed == null) {
@@ -102,6 +165,8 @@ public class JavaFeeds implements Feeds {
             feeds.put(user, userFeed);
         }
         userFeed.put(msg.getId(), msg);
+
+        return Result.ok();
     }
 
     // Metodo que coloca uma msg em todos os followers de alguem
@@ -132,7 +197,6 @@ public class JavaFeeds implements Feeds {
             return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
         }
 
-
         var result = auxVerifyPassword(user, pwd);
 
         if (result.isOK()) {
@@ -146,7 +210,6 @@ public class JavaFeeds implements Feeds {
             allMessages.put(id, msg);
 
             // Colocar a msg no user correto
-            // Colocar a msg no user correto, no map ordenado por time
             putMessageInUser(user, msg);
 
             // Coloco a msg no feed de todos os users que me seguem
@@ -260,6 +323,15 @@ public class JavaFeeds implements Feeds {
         }
         subs.add(userSub);
 
+        var parts = user.split(DELIMITER);
+        String userDomain = parts[1];
+        parts = userSub.split(DELIMITER);
+        String userSubDomain = parts[1];
+        if (!userDomain.equals(userSubDomain)) {
+            auxPropagateSub(user, userSub);
+        }
+
+
         // Adiciono o user aos Followers do userSub
         List<String> followers = myFollowers.get(userSub);
         if (followers == null) {
@@ -271,6 +343,7 @@ public class JavaFeeds implements Feeds {
 
         return Result.ok();
     }
+
 
     // A partir do momento que faco unsub deixo de receber msg de quem deixei se subscrever
     // Isto nao ta a acontecer. Tenho um bug qq que nao esta a assumir que deixei de seguir a pessoa
@@ -356,6 +429,29 @@ public class JavaFeeds implements Feeds {
 
         // Feito no fim so
         feeds.remove(user);
+
+        return Result.ok();
+    }
+
+    @Override
+    public Result<Void> propagateMsg(String user, Message msg) {
+        Map<Long, Message> userFeed = feeds.get(user);
+        if (userFeed == null) {
+            userFeed = new HashMap<>();
+            feeds.put(user, userFeed);
+        }
+        userFeed.put(msg.getId(), msg);
+
+        return Result.error(Result.ErrorCode.CONFLICT); // 409
+    }
+
+    @Override
+    public Result<Void> propagateSub(String user, String userSub) {
+        List<String> follows = myFollowers.get(userSub);
+        if (follows == null) {
+            follows = new LinkedList<>();
+        }
+        follows.add(user);
 
         return Result.ok();
     }

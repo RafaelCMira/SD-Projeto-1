@@ -2,14 +2,7 @@ package sd2223.trab1.api.rest;
 
 import java.util.List;
 
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import sd2223.trab1.api.Message;
 
@@ -105,6 +98,20 @@ public interface FeedsService {
     @Path("/sub/{" + USER + "}/{" + USERSUB + "}")
     void subUser(@PathParam(USER) String user, @PathParam(USERSUB) String userSub, @QueryParam(PWD) String pwd);
 
+
+    /**
+     * Propaga uma subscricao de um user para um userSub de outro server
+     * // Acrecentar user aos followers de userSub
+     *
+     * @param user    user que propaga
+     * @param userSub user being accessed (format user@domain)
+     * @return 204 if ok
+     */
+    @PUT
+    @Path("/sub/{" + USER + "}/{" + USERSUB + "}")
+    void propagateSub(@PathParam(USER) String user, @PathParam(USER) String userSub);
+
+
     /**
      * UnSubscribe a user
      * A user must contact the server of her domain directly (i.e., this operation should not be
@@ -143,6 +150,19 @@ public interface FeedsService {
     @DELETE
     @Path("/{" + USER + "}")
     void deleteUserFeed(@PathParam(USER) String user);
+
+
+    /**
+     * Propaga uma msg para um user de outro server.
+     *
+     * @param user user being accessed (format user@domain)
+     * @param msg  the message object to be posted to the server
+     * @return 204 if ok
+     */
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Path("/{" + USER + "}")
+    void propagateMessage(@PathParam(USER) String user, Message msg);
 
 
 }
