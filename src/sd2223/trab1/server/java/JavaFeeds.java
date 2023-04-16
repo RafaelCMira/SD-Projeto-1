@@ -30,9 +30,20 @@ public class JavaFeeds implements Feeds {
     // Feeds de todos os users do dominio
     private final Map<String, Map<Long, Message>> feeds = new HashMap<>();
 
+    // String -> userName; String -> quemSigoName; Void porque nao quero guardar nada
+    // Quem estou a seguir
+    private final Map<String, Map<String, Void>> mySubscriptions2 = new HashMap<>();
+
+    // String -> userName; String -> followerName; Void porque nao quero guardar nada
+    // Quem me segue
+    private final Map<String, Map<String, Void>> myFollowers2 = new HashMap<>();
+
+    // $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
     // String -> userName; List String -> userName de quem sigo
     // Quem estou a seguir
     private final Map<String, List<String>> mySubscriptions = new HashMap<>();
+
 
     // String -> userName; List String -> userName de quem me segue
     // Quem me segue
@@ -92,7 +103,7 @@ public class JavaFeeds implements Feeds {
     }
 
     // Coloca uma msg num user especifico
-    private void putMessageOnUser(String user, Message msg) {
+    private void putMessageInUser(String user, Message msg) {
         Map<Long, Message> userFeed = feeds.get(user);
 
         if (userFeed == null) {
@@ -116,16 +127,18 @@ public class JavaFeeds implements Feeds {
 
         while (seguidores.hasNext()) {
             String seguidor = seguidores.next();
-            putMessageOnUser(seguidor, msg);
+            putMessageInUser(seguidor, msg);
         }
 
-        /*
-        // Colocar a msg no follower
-        for (String follower : followers) {
-            putMessageOnUser(follower, msg);
-        }*/
-    }
 
+        Map<String, Void> followers2 = myFollowers2.get(user);
+        if (followers2 == null) {
+            followers2 = new HashMap<>();
+            myFollowers2.put(user, followers2);
+        }
+
+        followers2.forEach((id, unused) -> putMessageInUser(id, msg));
+    }
 
     @Override
     public Result<Long> postMessage(String user, String pwd, Message msg) {
@@ -147,7 +160,7 @@ public class JavaFeeds implements Feeds {
 
             // Colocar a msg no user correto
             // Colocar a msg no user correto, no map ordenado por time
-            putMessageOnUser(user, msg);
+            putMessageInUser(user, msg);
 
             // Coloco a msg no feed de todos os users que me seguem
             postMessageInFollowers(user, msg);
@@ -220,10 +233,6 @@ public class JavaFeeds implements Feeds {
     @Override
     public Result<List<Message>> getMessages(String user, long time) {
 
-        // User nao existe (mentira, isto ta errado porque o user pode existir no USERs server), quando crio um user no userServer,
-        // tenho que lhe criar um feed (a melhor forma de fazer isto e fazer um pedido ao feedsServer quando crio um user no USERS,
-        // mas para funcionar agora vou so fazer um pedido para ver se ele existe do feeds para o USERS e se existe entao crio um feed se ele ainda nao o tiver
-
         var result = auxCheckUser(user);
         List<Message> list = new LinkedList<>();
 
@@ -256,6 +265,7 @@ public class JavaFeeds implements Feeds {
         result = auxVerifyPassword(user, pwd);
         if (!result.isOK()) return Result.error(result.error());
 
+
         // Adiciono o userSub as minhas subscricoes
         List<String> subs = mySubscriptions.get(user);
         if (subs == null) {
@@ -271,6 +281,21 @@ public class JavaFeeds implements Feeds {
             myFollowers.put(userSub, followers);
         }
         followers.add(user);
+
+
+        Map<String, Void> subs2 = mySubscriptions2.get(user);
+        if (subs2 == null) {
+            subs2 = new HashMap<>();
+            mySubscriptions2.put(user, subs2);
+        }
+        subs2.put(userSub, null);
+
+        Map<String, Void> followers2 = myFollowers2.get(userSub);
+        if (followers2 == null) {
+            followers2 = new HashMap<>();
+            myFollowers2.put(user, followers2);
+        }
+        followers2.put(user, null);
 
         return Result.ok();
     }
@@ -300,16 +325,6 @@ public class JavaFeeds implements Feeds {
 
         }
 
-
-        // este res e true (testei com o if abaixo)
-        // portanto ele remove quando faz unsub, logo nao percebo porque e que quando faco post o programa mete no user que acabou de ser removido
-        /*
-        if (res == true) {
-            return Result.error(Result.ErrorCode.CONFLICT);
-        } else
-            return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
-        */
-
         // Removo o follow de user
         List<String> followers = myFollowers.get(userSub);
         if (followers == null) {
@@ -322,6 +337,21 @@ public class JavaFeeds implements Feeds {
         }
 
 
+        Map<String, Void> subs2 = mySubscriptions2.get(user);
+        if (subs2 == null) {
+            subs2 = new HashMap<>();
+            mySubscriptions2.put(user, subs2);
+        }
+        subs2.remove(userSub);
+
+        Map<String, Void> followers2 = myFollowers2.get(userSub);
+        if (followers2 == null) {
+            followers2 = new HashMap<>();
+            myFollowers2.put(userSub, followers2);
+        }
+        followers2.remove(user);
+
+
         return Result.ok();
     }
 
@@ -332,9 +362,23 @@ public class JavaFeeds implements Feeds {
             return Result.error(result.error()); // 404
         }
 
+        List<String> list = new LinkedList<>();
+
+        Map<String, Void> subs = mySubscriptions2.get(user);
+
+        if (subs == null) return Result.ok(list);
+
+
+        subs.forEach((id, unused) -> {
+            list.add(id);
+        });
+
+        list.addAll(subs.keySet());
+
+        /*
         List<String> list = mySubscriptions.get(user);
 
-        if (list == null) return Result.ok(new LinkedList<>());
+        if (list == null) return Result.ok(new LinkedList<>()); */
 
         return Result.ok(list);
     }
