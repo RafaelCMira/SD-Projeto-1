@@ -120,7 +120,6 @@ public class JavaFeeds implements Feeds {
             return Result.error(result.error());
     }
 
-
     private Result<Void> auxPropagateMsg(String user, Message msg) {
         var parts = user.split(DELIMITER);
         String userDomain = parts[1];
@@ -149,13 +148,15 @@ public class JavaFeeds implements Feeds {
     // Coloca uma msg num user especifico
     private Result<Void> putMessageInUser(String user, Message msg) {
 
-        Map<Long, Message> userFeed = feeds.get(user);
+        synchronized (this) {
+            Map<Long, Message> userFeed = feeds.get(user);
 
-        if (userFeed == null) {
-            userFeed = new HashMap<>();
-            feeds.put(user, userFeed);
+            if (userFeed == null) {
+                userFeed = new HashMap<>();
+                feeds.put(user, userFeed);
+            }
+            userFeed.put(msg.getId(), msg);
         }
-        userFeed.put(msg.getId(), msg);
 
         return Result.ok();
     }
@@ -163,19 +164,20 @@ public class JavaFeeds implements Feeds {
     // Metodo que coloca uma msg em todos os followers de alguem
     private Result<Void> postMessageInFollowers(String user, Message msg) {
         // Vou buscar a lista dos meus seguidores
-        List<String> followers = myFollowers.get(user);
+        synchronized (this) {
+            List<String> followers = myFollowers.get(user);
 
-        if (followers == null) {
-            followers = new LinkedList<>();
-            myFollowers.put(user, followers);
-        }
-
-        for (String follower : followers) {
-            if (sameDomain(user, follower) == null)
-                putMessageInUser(follower, msg);
-            else {
-                var result = auxPropagateMsg(follower, msg);
-                if (!result.isOK()) return Result.error(result.error());
+            if (followers == null) {
+                followers = new LinkedList<>();
+                myFollowers.put(user, followers);
+            }
+            for (String follower : followers) {
+                if (sameDomain(user, follower) == null)
+                    putMessageInUser(follower, msg);
+                else {
+                    var result = auxPropagateMsg(follower, msg);
+                    if (!result.isOK()) return Result.error(result.error());
+                }
             }
         }
 
@@ -198,13 +200,15 @@ public class JavaFeeds implements Feeds {
 
         if (result.isOK()) {
             // Gerar um id, timeStamp, para a msg
-            long id = generateId();
+            long id;
 
-            msg.setId(id);
-            msg.setCreationTime(System.currentTimeMillis());
-
-            // Coloco no allMessages
-            allMessages.put(id, msg);
+            synchronized (this) {
+                id = generateId();
+                msg.setId(id);
+                msg.setCreationTime(System.currentTimeMillis());
+                // Coloco no allMessages
+                allMessages.put(id, msg);
+            }
 
             // Colocar a msg no user correto
             putMessageInUser(user, msg);
@@ -233,20 +237,23 @@ public class JavaFeeds implements Feeds {
     }
 
     private Result<Void> auxRemoveFromFeed(String user, long mid) {
-        Map<Long, Message> userFeed = feeds.get(user);
-        if (userFeed == null) {
-            userFeed = new HashMap<>();
-            feeds.put(user, userFeed);
+        synchronized (this) {
+            Map<Long, Message> userFeed = feeds.get(user);
+            if (userFeed == null) {
+                userFeed = new HashMap<>();
+                feeds.put(user, userFeed);
+            }
+            // Verifica se o user tem a msg no feed
+            Message msg = userFeed.get(mid);
+            if (msg == null) return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+
+            // Se tem a msg entao remove
+            userFeed.remove(mid);
         }
 
-        // Verifica se o user tem a msg no feed
-        Message msg = userFeed.get(mid);
-        if (msg == null) return Result.error(Result.ErrorCode.NOT_FOUND); // 404
-
-        // Se tem a msg entao remove
-        userFeed.remove(mid);
-
-        allMessages.remove(mid);
+        synchronized (this) {
+            allMessages.remove(mid);
+        }
 
         return Result.ok();
     }
@@ -265,38 +272,40 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Message> getMessage(String user, long mid) {
-        Map<Long, Message> userFeed = feeds.get(user);
-        // Se o user nao existe
-        if (userFeed == null) {
-            return Result.error(Result.ErrorCode.NOT_FOUND); // 404
-        }
+        synchronized (this) {
+            Map<Long, Message> userFeed = feeds.get(user);
+            // Se o user nao existe
+            if (userFeed == null) {
+                return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+            }
 
-        Message msg = userFeed.get(mid);
-        // Se a msg nao exite
-        if (msg == null) {
-            return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+            Message msg = userFeed.get(mid);
+            // Se a msg nao exite
+            if (msg == null) {
+                return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+            }
+            return Result.ok(msg);
         }
-
-        return Result.ok(msg);
     }
 
     @Override
     public Result<List<Message>> getMessages(String user, long time) {
-
         var result = auxCheckUser(user);
         List<Message> list = new LinkedList<>();
 
         if (result.isOK()) {
-            Map<Long, Message> userFeed = feeds.get(user);
-            if (userFeed == null) {
-                userFeed = new HashMap<>();
-                feeds.put(user, userFeed);
-            }
+            synchronized (this) {
+                Map<Long, Message> userFeed = feeds.get(user);
+                if (userFeed == null) {
+                    userFeed = new HashMap<>();
+                    feeds.put(user, userFeed);
+                }
 
-            userFeed.forEach((id, msg) -> {
-                if (msg.getCreationTime() > time)
-                    list.add(msg);
-            });
+                userFeed.forEach((id, msg) -> {
+                    if (msg.getCreationTime() > time)
+                        list.add(msg);
+                });
+            }
         } else {
             return Result.error(result.error());
         }
@@ -314,24 +323,28 @@ public class JavaFeeds implements Feeds {
         result = auxVerifyPassword(user, pwd);
         if (!result.isOK()) return Result.error(result.error());
 
-        // Adiciono o userSub as minhas subscricoes
-        List<String> subs = mySubscriptions.get(user);
-        if (subs == null) {
-            subs = new LinkedList<>();
-            mySubscriptions.put(user, subs);
+        synchronized (this) {
+            // Adiciono o userSub as minhas subscricoes
+            List<String> subs = mySubscriptions.get(user);
+            if (subs == null) {
+                subs = new LinkedList<>();
+                mySubscriptions.put(user, subs);
+            }
+            subs.add(userSub);
         }
-        subs.add(userSub);
 
         String userSubDomain = sameDomain(user, userSub);
 
         if (userSubDomain == null) {
-            // Adiciono o user aos Followers do userSub
-            List<String> followers = myFollowers.get(userSub);
-            if (followers == null) {
-                followers = new LinkedList<>();
-                myFollowers.put(userSub, followers);
+            synchronized (this) {
+                // Adiciono o user aos Followers do userSub
+                List<String> followers = myFollowers.get(userSub);
+                if (followers == null) {
+                    followers = new LinkedList<>();
+                    myFollowers.put(userSub, followers);
+                }
+                followers.add(user);
             }
-            followers.add(user);
         } else {
             // Propago o sub para outros dominios
             Result<Void> res = auxPropagateSub(user, userSub);
@@ -357,11 +370,8 @@ public class JavaFeeds implements Feeds {
         else return null;
     }
 
-
     @Override
     public Result<Void> unsubscribeUser(String user, String userSub, String pwd) {
-        // user vai tirar a sub de userSub
-
         // Verificar se userSub a ser "des-subscrito" existe
         var result = auxCheckUser(userSub);
         if (!result.isOK()) return Result.error(result.error());
@@ -370,23 +380,27 @@ public class JavaFeeds implements Feeds {
         result = auxVerifyPassword(user, pwd);
         if (!result.isOK()) return Result.error(result.error());
 
-        // Removo a sub de userSub
-        List<String> subs = mySubscriptions.get(user);
-        if (subs == null) {
-            subs = new LinkedList<>();
-            mySubscriptions.put(user, subs);
+        synchronized (this) {
+            // Removo a sub de userSub
+            List<String> subs = mySubscriptions.get(user);
+            if (subs == null) {
+                subs = new LinkedList<>();
+                mySubscriptions.put(user, subs);
+            }
+
+            while (subs.remove(userSub)) ;
         }
 
-        while (subs.remove(userSub)) ;
+        synchronized (this) {
+            // Removo o follow de user
+            List<String> followers = myFollowers.get(userSub);
+            if (followers == null) {
+                followers = new LinkedList<>();
+                myFollowers.put(userSub, followers);
+            }
 
-        // Removo o follow de user
-        List<String> followers = myFollowers.get(userSub);
-        if (followers == null) {
-            followers = new LinkedList<>();
-            myFollowers.put(userSub, followers);
+            while (followers.remove(user)) ;
         }
-
-        while (followers.remove(user)) ;
 
         return Result.ok();
     }
@@ -398,7 +412,11 @@ public class JavaFeeds implements Feeds {
             return Result.error(result.error()); // 404
         }
 
-        List<String> list = mySubscriptions.get(user);
+        List<String> list;
+
+        synchronized (this) {
+            list = mySubscriptions.get(user);
+        }
 
         if (list == null) return Result.ok(new LinkedList<>());
 
@@ -409,48 +427,56 @@ public class JavaFeeds implements Feeds {
     public Result<Void> deleteUserFeed(String user) {
         // Eliminar todas as msg do user
 
-        Map<Long, Message> userFeed = feeds.get(user);
-        if (userFeed == null) {
-            // Nao tem msg no feed
-            return Result.ok();
+        synchronized (this) {
+            Map<Long, Message> userFeed = feeds.get(user);
+            if (userFeed == null) {
+                // Nao tem msg no feed
+                return Result.ok();
+            }
+
+            // Removo as msg da tabela com todas as msgs
+            userFeed.forEach((id, msg) -> {
+                allMessages.remove(id);
+            });
+
+            // Feito no fim so
+            feeds.remove(user);
         }
 
-        // Removo as msg da tabela com todas as msgs
-        userFeed.forEach((id, msg) -> {
-            allMessages.remove(id);
-        });
+        synchronized (this) {
+            // Retiro a subcricao de todas as pessoas e aviso que as deixo de seguir
+            List<String> userSubs = mySubscriptions.get(user);
+            if (userSubs != null)
+                for (String s : userSubs) {
+                    List<String> followers = myFollowers.get(s);
+                    while (followers.remove(user)) ;
+                }
+            mySubscriptions.remove(user);
+        }
 
-        // Retiro a subcricao de todas as pessoas e aviso que as deixo de seguir
-        List<String> userSubs = mySubscriptions.get(user);
-        if (userSubs != null)
-            for (String s : userSubs) {
-                List<String> followers = myFollowers.get(s);
-                while (followers.remove(user)) ;
-            }
-        mySubscriptions.remove(user);
-
-        // Retiro a subscricao de quem me segue
-        List<String> uFollowers = myFollowers.get(user);
-        if (uFollowers != null)
-            for (String f : uFollowers) {
-                List<String> subs = mySubscriptions.get(f);
-                while (subs.remove(user)) ;
-            }
-        myFollowers.remove(user);
-
-        // Feito no fim so
-        feeds.remove(user);
+        synchronized (this) {
+            // Retiro a subscricao de quem me segue
+            List<String> uFollowers = myFollowers.get(user);
+            if (uFollowers != null)
+                for (String f : uFollowers) {
+                    List<String> subs = mySubscriptions.get(f);
+                    while (subs.remove(user)) ;
+                }
+            myFollowers.remove(user);
+        }
 
         return Result.ok();
     }
 
     @Override
     public Result<Void> propagateSub(String user, String userSub) {
-        List<String> follows = myFollowers.get(userSub);
-        if (follows == null) {
-            follows = new LinkedList<>();
+        synchronized (this) {
+            List<String> follows = myFollowers.get(userSub);
+            if (follows == null) {
+                follows = new LinkedList<>();
+            }
+            follows.add(user);
         }
-        follows.add(user);
 
         return Result.ok();
         // return Result.error(Result.ErrorCode.CONFLICT); // 409
@@ -461,16 +487,25 @@ public class JavaFeeds implements Feeds {
         // return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
         // ja entra aqui
 
-        Map<Long, Message> userFeed = feeds.get(user);
+        synchronized (this) {
+            Map<Long, Message> userFeed = feeds.get(user);
 
-        if (userFeed == null) {
-            userFeed = new HashMap<>();
-            feeds.put(user, userFeed);
+            if (msg == null) return Result.error(Result.ErrorCode.CONFLICT);
+
+            if (userFeed == null) {
+                userFeed = new HashMap<>();
+                feeds.put(user, userFeed);
+            }
+
+            Message res = userFeed.put(msg.getId(), msg);
+
+            if (res == null) return Result.error(Result.ErrorCode.NOT_FOUND); // DA ESTE ERRO, mas porque?
+
+            if (res.getId() == msg.getId()) return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
+
+
+            return Result.ok();
         }
-        var res = userFeed.put(msg.getId(), msg);
-        if (res.getId() == msg.getId()) Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
-
-        return Result.ok();
     }
 
 }
