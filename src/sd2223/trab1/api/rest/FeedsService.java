@@ -12,7 +12,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import sd2223.trab1.api.Message;
-import sd2223.trab1.api.User;
 
 @Path(FeedsService.PATH)
 public interface FeedsService {
@@ -144,5 +143,6 @@ public interface FeedsService {
     @DELETE
     @Path("/{" + USER + "}")
     void deleteUserFeed(@PathParam(USER) String user);
+
 
 }

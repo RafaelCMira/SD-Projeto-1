@@ -126,6 +126,13 @@ public class JavaFeeds implements Feeds {
             return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
         }
 
+        var parts = user.split(DELIMITER);
+        String userDomain = parts[1];
+        if (!userDomain.equals(msg.getDomain())) {
+            return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
+        }
+
+
         var result = auxVerifyPassword(user, pwd);
 
         if (result.isOK()) {
@@ -224,9 +231,8 @@ public class JavaFeeds implements Feeds {
             }
 
             userFeed.forEach((id, msg) -> {
-                if (msg.getCreationTime() > time) { // esta correto, e maior que tenho de verificar
+                if (msg.getCreationTime() > time)
                     list.add(msg);
-                }
             });
         } else {
             return Result.error(result.error());
@@ -287,9 +293,7 @@ public class JavaFeeds implements Feeds {
             mySubscriptions.put(user, subs);
         }
 
-        while (subs.remove(userSub)) {
-
-        }
+        while (subs.remove(userSub)) ;
 
         // Removo o follow de user
         List<String> followers = myFollowers.get(userSub);
@@ -298,9 +302,7 @@ public class JavaFeeds implements Feeds {
             myFollowers.put(userSub, followers);
         }
 
-        while (followers.remove(user)) {
-
-        }
+        while (followers.remove(user)) ;
 
         return Result.ok();
     }
@@ -357,4 +359,5 @@ public class JavaFeeds implements Feeds {
 
         return Result.ok();
     }
+
 }

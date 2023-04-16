@@ -21,4 +21,5 @@ public interface Feeds {
     Result<List<String>> listSubs(String user);
 
     Result<Void> deleteUserFeed(String user);
+    
 }

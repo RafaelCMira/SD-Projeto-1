@@ -59,7 +59,6 @@ public class RestFeedsClient extends RestClient implements Feeds {
         return super.reTry(() -> clt_delUserFeed(user));
     }
 
-
     private Result<Void> clt_delUserFeed(String user) {
         Response r = target
                 .path(user)
@@ -68,4 +67,5 @@ public class RestFeedsClient extends RestClient implements Feeds {
 
         return super.toJavaResult(r, Void.class);
     }
+
 }

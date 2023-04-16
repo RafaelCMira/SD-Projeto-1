@@ -7,9 +7,7 @@ import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Result.ErrorCode;
 import sd2223.trab1.api.java.Users;
 import sd2223.trab1.client.RestFeedsClient;
-import sd2223.trab1.client.RestUsersClient;
 import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
-import sd2223.trab1.server.REST.Users.RestUsersServer;
 
 import java.net.URI;
 import java.util.HashMap;
@@ -19,6 +17,7 @@ import java.util.Map;
 
 public class JavaUsers implements Users {
 
+    private final String DELIMITER = "@";
     private final int MIN_REPLIES = 1;
     private final Map<String, User> users = new HashMap<>();
 
@@ -49,8 +48,7 @@ public class JavaUsers implements Users {
     @Override
     public Result<String> createUser(User user) {
         // Check if user data is valid
-        if (user.getName() == null || user.getPwd() == null || user.getDisplayName() == null ||
-                user.getDomain() == null) {
+        if (user.getName() == null || user.getPwd() == null || user.getDisplayName() == null || user.getDomain() == null) {
             //   Log.info("User object invalid.");
             return Result.error(ErrorCode.BAD_REQUEST); // 400
         }
@@ -63,7 +61,7 @@ public class JavaUsers implements Users {
             }
         }
 
-        String name = user.getName() + "@" + user.getDomain();
+        String name = user.getName() + DELIMITER + user.getDomain();
         // Log.info("createUser : " + user);
         return Result.ok(name);
     }
@@ -121,7 +119,7 @@ public class JavaUsers implements Users {
         if (result.isOK()) {
             User user = result.value();
             users.remove(name);
-            String userName = user.getName() + "@" + user.getDomain();
+            String userName = user.getName() + DELIMITER + user.getDomain();
 
             // Descubro onde esta o servidor
             Discovery discovery = Discovery.getInstance();
