@@ -301,7 +301,7 @@ public class JavaFeeds implements Feeds {
         while (followers.remove(user)) {
 
         }
-        
+
         return Result.ok();
     }
 
@@ -317,5 +317,42 @@ public class JavaFeeds implements Feeds {
         if (list == null) return Result.ok(new LinkedList<>());
 
         return Result.ok(list);
+    }
+
+    @Override
+    public Result<Void> deleteUserFeed(String user) {
+        /*
+        // Eliminar todas as msg do user
+        Map<Long, Message> userFeed = feeds.get(user);
+        if (userFeed == null) {
+            // Nao tem msg no feed
+            return Result.ok();
+        }
+
+        // Removo as msg da tabela com todas as msgs
+        userFeed.forEach((id, msg) -> {
+            allMessages.remove(id);
+        });
+
+        // Retiro a subcricao de todas as pessoas e aviso que as deixo de seguir
+        List<String> userSubs = mySubscriptions.get(user);
+        for (String s : userSubs) {
+            List<String> followers = myFollowers.get(s);
+            while (followers.remove(user)) ;
+        }
+        mySubscriptions.remove(user);
+
+        // Retiro a subscricao de quem me segue
+        List<String> uFollowers = myFollowers.get(user);
+        for (String f : uFollowers) {
+            List<String> subs = mySubscriptions.get(f);
+            while (subs.remove(user)) ;
+        }
+        myFollowers.remove(user);
+
+        // Feito no fim so
+        feeds.remove(userFeed);*/
+
+        return Result.ok();
     }
 }
