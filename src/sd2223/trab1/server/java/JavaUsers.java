@@ -132,8 +132,8 @@ public class JavaUsers implements Users {
             // Obtenho o servidor
             Feeds feedsServer = new RestFeedsClient(serverUri);
 
-
             var res = feedsServer.deleteUserFeed(userName);
+
             if (res.isOK())
                 return Result.ok(user); // 200n
             else

@@ -195,13 +195,13 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Message> getMessage(String user, long mid) {
-        Map<Long, Message> uMessages = feeds.get(user);
+        Map<Long, Message> userFeed = feeds.get(user);
         // Se o user nao existe
-        if (uMessages == null) {
+        if (userFeed == null) {
             return Result.error(Result.ErrorCode.NOT_FOUND); // 404
         }
 
-        Message msg = uMessages.get(mid);
+        Message msg = userFeed.get(mid);
         // Se a msg nao exite
         if (msg == null) {
             return Result.error(Result.ErrorCode.NOT_FOUND); // 404
@@ -321,8 +321,8 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Void> deleteUserFeed(String user) {
-        /*
         // Eliminar todas as msg do user
+
         Map<Long, Message> userFeed = feeds.get(user);
         if (userFeed == null) {
             // Nao tem msg no feed
@@ -336,22 +336,24 @@ public class JavaFeeds implements Feeds {
 
         // Retiro a subcricao de todas as pessoas e aviso que as deixo de seguir
         List<String> userSubs = mySubscriptions.get(user);
-        for (String s : userSubs) {
-            List<String> followers = myFollowers.get(s);
-            while (followers.remove(user)) ;
-        }
+        if (userSubs != null)
+            for (String s : userSubs) {
+                List<String> followers = myFollowers.get(s);
+                while (followers.remove(user)) ;
+            }
         mySubscriptions.remove(user);
 
         // Retiro a subscricao de quem me segue
         List<String> uFollowers = myFollowers.get(user);
-        for (String f : uFollowers) {
-            List<String> subs = mySubscriptions.get(f);
-            while (subs.remove(user)) ;
-        }
+        if (uFollowers != null)
+            for (String f : uFollowers) {
+                List<String> subs = mySubscriptions.get(f);
+                while (subs.remove(user)) ;
+            }
         myFollowers.remove(user);
 
         // Feito no fim so
-        feeds.remove(userFeed);*/
+        feeds.remove(user);
 
         return Result.ok();
     }

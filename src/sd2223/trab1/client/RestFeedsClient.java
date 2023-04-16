@@ -1,13 +1,11 @@
 package sd2223.trab1.client;
 
 import jakarta.ws.rs.client.WebTarget;
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import sd2223.trab1.api.Message;
-import sd2223.trab1.api.User;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
-import sd2223.trab1.api.rest.UsersService;
+import sd2223.trab1.api.rest.FeedsService;
 
 import java.net.URI;
 import java.util.List;
@@ -18,7 +16,7 @@ public class RestFeedsClient extends RestClient implements Feeds {
 
     public RestFeedsClient(URI serverURI) {
         super(serverURI);
-        target = client.target(serverURI).path(UsersService.PATH);
+        target = client.target(serverURI).path(FeedsService.PATH);
     }
 
     @Override
