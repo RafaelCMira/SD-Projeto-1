@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import sd2223.trab1.api.Message;
+import sd2223.trab1.api.PropagateMsgHelper;
 
 @Path(FeedsService.PATH)
 public interface FeedsService {
@@ -149,13 +150,16 @@ public interface FeedsService {
     @Path("/suber/{" + USER + "}/{" + USERSUB + "}")
     void propagateSub(@PathParam(USER) String user, @PathParam(USERSUB) String userSub);
 
-    @POST
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Path("/suber/{" + USER + "}")
-    void propSub2(@PathParam(USER) String user, @QueryParam("secret") String secret, List<String> users);
 
+    // Mandar para um dominio,
+    // Criar uma classe que receba estes dois argumentos no construtor e envio esse objeto no propagate
+    // Assim ja se pode usar o consumes com apenas 1 objeto
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Path("/propagate/{" + USER + "}")
-    void propagateMsg(@PathParam(USER) String user, Message msg);
+    void propagateMsg(PropagateMsgHelper msgAndSubsList);
+
+
+
+
 }

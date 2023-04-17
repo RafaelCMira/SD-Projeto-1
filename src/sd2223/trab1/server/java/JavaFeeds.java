@@ -3,6 +3,7 @@ package sd2223.trab1.server.java;
 import jakarta.inject.Singleton;
 import sd2223.trab1.Discovery;
 import sd2223.trab1.api.Message;
+import sd2223.trab1.api.PropagateMsgHelper;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Users;
@@ -20,7 +21,7 @@ public class JavaFeeds implements Feeds {
 
     private static Logger Log = Logger.getLogger(JavaUsers.class.getName());
     private static final String DELIMITER = "@";
-    private static String domain;
+    private static String serverDomain;
     private static int  feedsID;
     private final int MIN_REPLIES = 1;
 
@@ -38,7 +39,7 @@ public class JavaFeeds implements Feeds {
     private final Map<String, List<String>> mySubscriptions = new HashMap<>();
 
     // String -> userName; -- String -> Domain; String -> Users
-    private final Map<String, Map<String, List<String>>> subsPorDom = new HashMap<>();
+    private final Map<String, Map<String, List<String>>> followersByDomain = new HashMap<>();
 
 
     // String -> userName; List String -> userName de quem me segue
@@ -49,8 +50,8 @@ public class JavaFeeds implements Feeds {
 
     }
 
-    public JavaFeeds(String domain, int feedsID) {
-        this.domain = domain;
+    public JavaFeeds(String serverDomain, int feedsID) {
+        this.serverDomain = serverDomain;
         this.feedsID = feedsID;
     }
 
@@ -113,7 +114,7 @@ public class JavaFeeds implements Feeds {
         // Obtenho o servidor
         Feeds feedsServer = new RestFeedsClient(serverUri);
 
-        // Faço um pedido para propagar a msg para o user de outro dominio
+        // Faço um pedido para propagar o sub para o user de outro dominio (colocar la o follow)
 
         var result = feedsServer.propagateSub(user, userSub);
 
@@ -123,13 +124,10 @@ public class JavaFeeds implements Feeds {
             return Result.error(result.error());
     }
 
-    private Result<Void> auxPropagateMsg(String user, Message msg) {
-        var parts = user.split(DELIMITER);
-        String userDomain = parts[1];
-
+    private Result<Void> auxPropagateMsg(String domainToPropagate, Message msg, List<String> subs) {
         // Descubro onde esta o servidor
         Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestFeedsServer.SERVICE + "." + userDomain;
+        String serviceDomain = RestFeedsServer.SERVICE + "." + domainToPropagate;
 
         // Obtenho o URI
         URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
@@ -138,13 +136,20 @@ public class JavaFeeds implements Feeds {
         // Obtenho o servidor
         Feeds feedsServer = new RestFeedsClient(serverUri);
 
+
+        PropagateMsgHelper propMsg = new PropagateMsgHelper(msg, subs);
+
+        var result = feedsServer.propagateMsg(propMsg);
+
+
+        /*
         // Faço um pedido para propagar a msg para o user de outro dominio
         var result = feedsServer.propagateMsg(user, msg); // ENTRA AQUI
-
         if (result.isOK())
             return Result.ok();
         else
-            return Result.error(result.error());
+            return Result.error(result.error());*/
+        return Result.ok();
     }
 
 
@@ -174,14 +179,29 @@ public class JavaFeeds implements Feeds {
                 followers = new LinkedList<>();
                 myFollowers.put(user, followers);
             }
+
             for (String follower : followers) {
                 if (sameDomain(user, follower) == null)
                     putMessageInUser(follower, msg);
-                else {
-                    var result = auxPropagateMsg(follower, msg);
-                    if (!result.isOK()) return Result.error(result.error());
-                }
             }
+
+            var parts = user.split(DELIMITER);
+            String userDomain = parts[1];
+
+            Map<String, List<String>> userSubsDomains = followersByDomain.get(user);
+
+            if(userSubsDomains == null) {
+                userSubsDomains = new HashMap<>();
+                followersByDomain.put(user, userSubsDomains);
+            }
+
+            userSubsDomains.forEach((domain, list) -> {
+                if (userDomain.equals(domain)) {
+                    for(String u: list) putMessageInUser(u, msg);
+                } else {
+                  var result =  auxPropagateMsg(domain, msg, list);
+                }
+            });
         }
 
         return Result.ok();
@@ -200,7 +220,7 @@ public class JavaFeeds implements Feeds {
             return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
         }*/
 
-        if (!userDomain.equals(domain)) {
+        if (!userDomain.equals(serverDomain)) {
             return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
         }
 
@@ -351,24 +371,6 @@ public class JavaFeeds implements Feeds {
                 mySubscriptions.put(user, subs);
             }
             subs.add(userSub);
-
-            Map<String, List<String>> subsDomain = subsPorDom.get(user);
-            if (subsDomain == null) {
-                subsDomain = new HashMap<>();
-                subsPorDom.put(user, subsDomain);
-            }
-
-            var parts = userSub.split(DELIMITER);
-            String userSubDomain = parts[1];
-
-            List<String> subsTemp = subsDomain.get(userSubDomain);
-
-            if(subsTemp == null) {
-                subsTemp = new LinkedList<>();
-                subsDomain.put(userSubDomain, subsTemp);
-            }
-
-            subsTemp.add(userSub);
         }
 
         String userSubDomain = sameDomain(user, userSub);
@@ -382,6 +384,25 @@ public class JavaFeeds implements Feeds {
                     myFollowers.put(userSub, followers);
                 }
                 followers.add(user);
+
+                Map<String, List<String>> followersDomain = followersByDomain.get(user);
+                if (followersDomain == null) {
+                    followersDomain = new HashMap<>();
+                    followersByDomain.put(user, followersDomain);
+                }
+
+                var parts = user.split(DELIMITER);
+                String userSubDomain2 = parts[1];
+
+                List<String> followsTemp = followersDomain.get(userSubDomain2);
+
+                if(followsTemp == null) {
+                    followsTemp = new LinkedList<>();
+                    followersDomain.put(userSubDomain2, followsTemp);
+                }
+
+                followsTemp.add(userSub);
+
             }
         } else {
             // Propago o sub para outros dominios
@@ -425,27 +446,6 @@ public class JavaFeeds implements Feeds {
                 subs = new LinkedList<>();
                 mySubscriptions.put(user, subs);
             }
-
-            Map<String, List<String>> subsDomain = subsPorDom.get(user);
-            if (subsDomain == null) {
-                subsDomain = new HashMap<>();
-                subsPorDom.put(user, subsDomain);
-            }
-
-            var parts = userSub.split(DELIMITER);
-            String userSubDomain = parts[1];
-
-            List<String> subsTemp = subsDomain.get(userSubDomain);
-
-            if(subsTemp == null) {
-                subsTemp = new LinkedList<>();
-                subsDomain.put(userSubDomain, subsTemp);
-            }
-
-            subsTemp.remove(userSub);
-
-
-
 
             while (subs.remove(userSub)) ;
         }
@@ -529,35 +529,52 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Void> propagateSub(String user, String userSub) {
+
         synchronized (this) {
             List<String> follows = myFollowers.get(userSub);
             if (follows == null) {
                 follows = new LinkedList<>();
             }
             follows.add(user);
+
+            Map<String, List<String>> followersDomain = followersByDomain.get(user);
+            if (followersDomain == null) {
+                followersDomain = new HashMap<>();
+                followersByDomain.put(user, followersDomain);
+            }
+
+            var parts = userSub.split(DELIMITER);
+            String userFollowDomain = parts[1];
+
+            List<String> followTemp = followersDomain.get(userFollowDomain);
+
+            if(followTemp == null) {
+                followTemp = new LinkedList<>();
+                followersDomain.put(userFollowDomain, followTemp);
+            }
+
+            followTemp.add(userSub);
+
         }
 
         return Result.ok();
-        // return Result.error(Result.ErrorCode.CONFLICT); // 409
+       // return Result.error(Result.ErrorCode.CONFLICT); // 409
     }
 
     @Override
-    public Result<Void> propagateMsg(String user, Message msg) {
-        // return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
-        // ja entra aqui
+    public Result<Void> propagateMsg(PropagateMsgHelper msgAndSubsList) {
 
-        synchronized (this) {
-            Map<Long, Message> userFeed = feeds.get(user);
+        Message msg = msgAndSubsList.getMsg();
+        List<String> users = msgAndSubsList.getSubs();
 
-            if (userFeed == null) {
-                userFeed = new HashMap<>();
-                feeds.put(user, userFeed);
-            }
+        for(String u: users) {
+            Map<Long, Message> userFeed = feeds.get(u);
 
             userFeed.put(msg.getId(), msg);
-
-            return Result.ok();
         }
+
+        return Result.ok();
     }
+
 
 }

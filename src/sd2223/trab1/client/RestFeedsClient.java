@@ -5,6 +5,7 @@ import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import sd2223.trab1.api.Message;
+import sd2223.trab1.api.PropagateMsgHelper;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.rest.FeedsService;
@@ -67,8 +68,8 @@ public class RestFeedsClient extends RestClient implements Feeds {
     }
 
     @Override
-    public Result<Void> propagateMsg(String user, Message msg) {
-        return super.reTry(() -> clt_propagateMsg(user, msg));
+    public Result<Void> propagateMsg(PropagateMsgHelper msgAndSubsList) {
+        return super.reTry(() -> clt_propagateMsg(msgAndSubsList));
     }
 
     private Result<Void> clt_delUserFeed(String user) {
@@ -91,24 +92,11 @@ public class RestFeedsClient extends RestClient implements Feeds {
         return super.toJavaResult(r, Void.class);
     }
 
-    private Result<Void> clt_proSub(String user, String secret, List<String> subs) {
-        Response r = target
-                .path("suber")
-                .path(user)
-                .path("secret")
-                .queryParam("secret", secret)
-                .request()
-                .post(Entity.entity(subs, MediaType.APPLICATION_JSON));
-
-        return super.toJavaResult(r, Void.class);
-    }
-
-    private Result<Void> clt_propagateMsg(String user, Message msg) {
+    private Result<Void> clt_propagateMsg(PropagateMsgHelper msgAndSubsList) {
         Response r = target
                 .path("propagate")
-                .path(user)
                 .request()
-                .post(Entity.entity(msg, MediaType.APPLICATION_JSON));
+                .post(Entity.entity(msgAndSubsList, MediaType.APPLICATION_JSON));
         return super.toJavaResult(r, Void.class);
     }
 

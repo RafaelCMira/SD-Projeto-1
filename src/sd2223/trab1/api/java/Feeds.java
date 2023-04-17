@@ -1,6 +1,7 @@
 package sd2223.trab1.api.java;
 
 import sd2223.trab1.api.Message;
+import sd2223.trab1.api.PropagateMsgHelper;
 
 import java.util.List;
 
@@ -24,5 +25,7 @@ public interface Feeds {
 
     Result<Void> propagateSub(String user, String userSub);
 
-    Result<Void> propagateMsg(String user, Message msg);
+    Result<Void> propagateMsg(PropagateMsgHelper msgAndSubsList);
+
+
 }

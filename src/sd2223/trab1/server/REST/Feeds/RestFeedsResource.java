@@ -2,6 +2,7 @@ package sd2223.trab1.server.REST.Feeds;
 
 import jakarta.inject.Singleton;
 import sd2223.trab1.api.Message;
+import sd2223.trab1.api.PropagateMsgHelper;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.rest.FeedsService;
 import sd2223.trab1.server.REST.RestResource;
@@ -68,8 +69,8 @@ public class RestFeedsResource extends RestResource implements FeedsService {
     }
 
     @Override
-    public void propagateMsg(String user, Message msg) {
-        super.fromJavaResult(impl.propagateMsg(user, msg));
+    public void propagateMsg(PropagateMsgHelper msgAndSubsList) {
+
     }
 
 }
