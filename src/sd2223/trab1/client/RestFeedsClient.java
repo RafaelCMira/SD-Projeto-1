@@ -91,6 +91,18 @@ public class RestFeedsClient extends RestClient implements Feeds {
         return super.toJavaResult(r, Void.class);
     }
 
+    private Result<Void> clt_proSub(String user, String secret, List<String> subs) {
+        Response r = target
+                .path("suber")
+                .path(user)
+                .path("secret")
+                .queryParam("secret", secret)
+                .request()
+                .post(Entity.entity(subs, MediaType.APPLICATION_JSON));
+
+        return super.toJavaResult(r, Void.class);
+    }
+
     private Result<Void> clt_propagateMsg(String user, Message msg) {
         Response r = target
                 .path("propagate")

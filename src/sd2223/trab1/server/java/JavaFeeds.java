@@ -37,6 +37,9 @@ public class JavaFeeds implements Feeds {
     // Quem estou a seguir
     private final Map<String, List<String>> mySubscriptions = new HashMap<>();
 
+    // String -> userName; -- String -> Domain; String -> Users
+    private final Map<String, Map<String, List<String>>> subsPorDom = new HashMap<>();
+
 
     // String -> userName; List String -> userName de quem me segue
     // Quem me segue
@@ -348,6 +351,24 @@ public class JavaFeeds implements Feeds {
                 mySubscriptions.put(user, subs);
             }
             subs.add(userSub);
+
+            Map<String, List<String>> subsDomain = subsPorDom.get(user);
+            if (subsDomain == null) {
+                subsDomain = new HashMap<>();
+                subsPorDom.put(user, subsDomain);
+            }
+
+            var parts = userSub.split(DELIMITER);
+            String userSubDomain = parts[1];
+
+            List<String> subsTemp = subsDomain.get(userSubDomain);
+
+            if(subsTemp == null) {
+                subsTemp = new LinkedList<>();
+                subsDomain.put(userSubDomain, subsTemp);
+            }
+
+            subsTemp.add(userSub);
         }
 
         String userSubDomain = sameDomain(user, userSub);
@@ -404,6 +425,27 @@ public class JavaFeeds implements Feeds {
                 subs = new LinkedList<>();
                 mySubscriptions.put(user, subs);
             }
+
+            Map<String, List<String>> subsDomain = subsPorDom.get(user);
+            if (subsDomain == null) {
+                subsDomain = new HashMap<>();
+                subsPorDom.put(user, subsDomain);
+            }
+
+            var parts = userSub.split(DELIMITER);
+            String userSubDomain = parts[1];
+
+            List<String> subsTemp = subsDomain.get(userSubDomain);
+
+            if(subsTemp == null) {
+                subsTemp = new LinkedList<>();
+                subsDomain.put(userSubDomain, subsTemp);
+            }
+
+            subsTemp.remove(userSub);
+
+
+
 
             while (subs.remove(userSub)) ;
         }
