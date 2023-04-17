@@ -151,6 +151,11 @@ public interface FeedsService {
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
-    @Path("/propagate")
+    @Path("/suber/{" + USER + "}")
+    void propSub2(@PathParam(USER) String user, @QueryParam("secret") String secret, List<String> users);
+
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Path("/propagate/{" + USER + "}")
     void propagateMsg(@PathParam(USER) String user, Message msg);
 }

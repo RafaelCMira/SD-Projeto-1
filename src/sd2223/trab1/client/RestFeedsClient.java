@@ -94,6 +94,7 @@ public class RestFeedsClient extends RestClient implements Feeds {
     private Result<Void> clt_propagateMsg(String user, Message msg) {
         Response r = target
                 .path("propagate")
+                .path(user)
                 .request()
                 .post(Entity.entity(msg, MediaType.APPLICATION_JSON));
         return super.toJavaResult(r, Void.class);

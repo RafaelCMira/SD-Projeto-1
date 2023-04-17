@@ -20,8 +20,8 @@ public class JavaFeeds implements Feeds {
 
     private static Logger Log = Logger.getLogger(JavaUsers.class.getName());
     private static final String DELIMITER = "@";
-    private String domain;
-    private int feedsID;
+    private static String domain;
+    private static int  feedsID;
     private final int MIN_REPLIES = 1;
 
     // Long -> id; Message
@@ -192,9 +192,16 @@ public class JavaFeeds implements Feeds {
 
         var parts = user.split(DELIMITER);
         String userDomain = parts[1];
+        /*
         if (!userDomain.equals(msg.getDomain())) {
             return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
+        }*/
+
+        if (!userDomain.equals(domain)) {
+            return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
         }
+
+
 
         var result = auxVerifyPassword(user, pwd);
 
@@ -203,7 +210,7 @@ public class JavaFeeds implements Feeds {
             long id;
 
             synchronized (this) {
-                id = generateId();
+                id = generateId2(feedsID, 19); //generateId();
                 msg.setId(id);
                 msg.setCreationTime(System.currentTimeMillis());
                 // Coloco no allMessages
@@ -227,14 +234,24 @@ public class JavaFeeds implements Feeds {
     }
 
     // Metodo auxiliar para gerar id's
-    private long generateId() {
+    private long generateId2(long number, int n) {
+        long result = number;
         Random rand = new Random();
-        long id = Math.abs(rand.nextLong());
-        while (allMessages.containsKey(id)) {
-            id = Math.abs(rand.nextLong());
+
+        // Adiciona dígitos aleatórios após o número inicial
+        for (int i = Long.toString(number).length(); i < n; i++) {
+            result = result * 10 + rand.nextInt(10);
         }
-        return id;
+
+        while (allMessages.containsKey(result)) {
+            for (int i = Long.toString(number).length(); i < n; i++) {
+                result = result * 10 + rand.nextInt(10);
+            }
+        }
+
+        return result;
     }
+
 
     private Result<Void> auxRemoveFromFeed(String user, long mid) {
         synchronized (this) {
@@ -490,19 +507,12 @@ public class JavaFeeds implements Feeds {
         synchronized (this) {
             Map<Long, Message> userFeed = feeds.get(user);
 
-            if (msg == null) return Result.error(Result.ErrorCode.CONFLICT);
-
             if (userFeed == null) {
                 userFeed = new HashMap<>();
                 feeds.put(user, userFeed);
             }
 
-            Message res = userFeed.put(msg.getId(), msg);
-
-            if (res == null) return Result.error(Result.ErrorCode.NOT_FOUND); // DA ESTE ERRO, mas porque?
-
-            if (res.getId() == msg.getId()) return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
-
+            userFeed.put(msg.getId(), msg);
 
             return Result.ok();
         }
