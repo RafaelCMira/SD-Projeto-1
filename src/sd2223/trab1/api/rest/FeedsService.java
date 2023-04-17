@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import sd2223.trab1.api.Message;
+import sd2223.trab1.api.PropMsgHelper;
 
 @Path(FeedsService.PATH)
 public interface FeedsService {
@@ -136,6 +137,29 @@ public interface FeedsService {
     @DELETE
     @Path("/{" + USER + "}")
     void deleteUserFeed(@PathParam(USER) String user);
+
+
+    // Mandar para um dominio,
+    // Criar uma classe que receba estes dois argumentos no construtor e envio esse objeto no propagate
+    // Assim ja se pode usar o consumes com apenas 1 objeto
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Path("/propagate/{" + USER + "}")
+    void propagateMsg(PropMsgHelper msgAndList);
+
+
+    /**
+     * Propaga uma subscricao de um user para um userSub de outro server
+     * // Acrecentar user aos followers de userSub
+     *
+     * @param user    user que propaga    (format user@domain)
+     * @param userSub user being accessed (format user@domain)
+     * @return 204 if ok
+     */
+    @POST
+    @Path("/{" + USER + "}/suber/" + "{" + USERSUB + "}")
+    //     @Path("/suber/{" + USER + "}/{" + USERSUB + "}") como tinhamos dantes
+    void propagateSub(@PathParam(USER) String user, @PathParam(USERSUB) String userSub);
 
 
 }

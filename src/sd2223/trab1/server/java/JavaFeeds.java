@@ -7,6 +7,7 @@ import sd2223.trab1.api.PropMsgHelper;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Users;
+import sd2223.trab1.client.RestFeedsClient;
 import sd2223.trab1.client.RestUsersClient;
 import sd2223.trab1.server.REST.Users.RestUsersServer;
 
@@ -19,7 +20,7 @@ public class JavaFeeds implements Feeds {
 
     private static Logger Log = Logger.getLogger(JavaUsers.class.getName());
     private static final String DELIMITER = "@";
-    private static String domain;
+    private static String feedsDomain;
     private static int feedsID;
     private final int MIN_REPLIES = 1;
 
@@ -50,8 +51,8 @@ public class JavaFeeds implements Feeds {
 
     }
 
-    public JavaFeeds(String domain, int feedsID) {
-        this.domain = domain;
+    public JavaFeeds(String feedsDomain, int feedsID) {
+        this.feedsDomain = feedsDomain;
         this.feedsID = feedsID;
     }
 
@@ -99,6 +100,43 @@ public class JavaFeeds implements Feeds {
         return result;
     }
 
+    private Result<Void> auxPropMsg(String serverDomain, PropMsgHelper obj) {
+        // Descubro onde esta o servidor
+        Discovery discovery = Discovery.getInstance();
+        String serviceDomain = RestUsersServer.SERVICE + "." + serverDomain;
+        // Obtenho o URI
+        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
+        URI serverUri = uris[0];
+        // Obtenho o servidor
+        Feeds feedsServer = new RestFeedsClient(serverUri);
+
+        // Faço um pedido para verificar a password. (Tb verifica se o user existe, entre outras coisas)
+        var result = feedsServer.propagateMsg(obj);
+
+        return result;
+    }
+
+    private Result<Void> auxPropSub(String user, String userSub) {
+        var parts = userSub.split(DELIMITER);
+        String userSubDomain = parts[1];
+        // Descubro onde esta o servidor
+        Discovery discovery = Discovery.getInstance();
+        String serviceDomain = RestUsersServer.SERVICE + "." + userSubDomain;
+        // Obtenho o URI
+        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
+        URI serverUri = uris[0];
+
+        // Obtenho o servidor
+        Feeds feedsServer = new RestFeedsClient(serverUri);
+
+        // Faço um pedido para verificar a password. (Tb verifica se o user existe, entre outras coisas)
+
+        // if (feedsServer != null) return Result.error(Result.ErrorCode.CONFLICT);
+
+        var result = feedsServer.propagateSub(user, userSub);
+
+        return result;
+    }
 
     // Coloca uma msg num user especifico
     private Result<Void> putMessageInUser(String user, Message msg) {
@@ -120,7 +158,6 @@ public class JavaFeeds implements Feeds {
     private Result<Void> postMessageInFollowers(String user, Message msg) {
         // Vou buscar a lista dos meus seguidores
         synchronized (this) {
-
             // Colocar a msg no feed de todos os followers do user no mesmo dominio (mesmo dominio)
             List<String> followersInCurrentDomain = myFollowersInCurrentDomain.get(user);
             if (followersInCurrentDomain == null) {
@@ -130,7 +167,6 @@ public class JavaFeeds implements Feeds {
             for (String f : followersInCurrentDomain) {
                 putMessageInUser(f, msg);
             }
-
 
             // Colocar a msg no feed de todos os followers do user com dominios diferentes.
             Map<String, List<String>> followersByDomain = myFollowersByDomain.get(user); // todos os followers do user agrupados por dominio
@@ -143,9 +179,8 @@ public class JavaFeeds implements Feeds {
             followersByDomain.forEach((domain, list) -> {
                 // para cada domain, vamos enviar um pedido ao servidor com aquele dominio e colocamos a msg em todos os seguidores do user naquele dominio
                 PropMsgHelper msgAndList = new PropMsgHelper(msg, list);
-                // var result = auxPropagateMsg(msgAndList);
+                var result = auxPropMsg(domain, msgAndList);
             });
-
         }
 
         return Result.ok();
@@ -305,7 +340,6 @@ public class JavaFeeds implements Feeds {
                 userSubscriptions = new LinkedList<>();
                 mySubscriptionsInCurrentDomain.put(user, userSubscriptions);
             }
-
             userSubscriptions.add(userSub);
 
             // Adiciono user aos follows de userSub
@@ -314,25 +348,35 @@ public class JavaFeeds implements Feeds {
                 userSubFollowers = new LinkedList<>();
                 myFollowersInCurrentDomain.put(userSub, userSubFollowers);
             }
-
             userSubFollowers.add(user);
         } else {
             // Se estao em dominios diferentes
 
             // Adiciono userSub as subs de user (feito da mesma forma quer esteja no mesmo dominio ou nao)
-            List<String> userSubscriptions = mySubscriptionsInCurrentDomain.get(user);
-            if (userSubscriptions == null) {
-                userSubscriptions = new LinkedList<>();
-                mySubscriptionsInCurrentDomain.put(user, userSubscriptions);
+            Map<String, List<String>> subscriptionsByDomain = mySubscriptionsByDomain.get(user);
+            if (subscriptionsByDomain == null) {
+                subscriptionsByDomain = new HashMap<>();
+                mySubscriptionsByDomain.put(user, subscriptionsByDomain);
             }
-            if (!userSubscriptions.contains(userSub))
-                userSubscriptions.add(userSub);
+            var parts = userSub.split(DELIMITER);
+            String userSubDomain = parts[1];
 
-            // Adiciono user aos folloes de userSub
+            List<String> usersInDomain = subscriptionsByDomain.get(userSubDomain);
+            if (usersInDomain == null) {
+                usersInDomain = new LinkedList<>();
+                subscriptionsByDomain.put(userSubDomain, usersInDomain);
+            }
+
+            usersInDomain.add(userSub);
+
+            var res = auxPropSub(user, userSub);
+            if (!res.isOK()) return Result.error(res.error());
+
+            // Adiciono user aos followers de userSub
             // Faco um pedido
             // TODO
             // Propago o follow para o dominio do userSub
-            // var result = auxPropagateSub(user, userSub)
+
         }
 
         return Result.ok();
@@ -490,6 +534,48 @@ public class JavaFeeds implements Feeds {
 
         // ###################################################################### //
 
+
+        return Result.ok();
+    }
+
+    @Override
+    public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
+        Message msg = msgAndList.getMsg();
+
+        List<String> usersList = msgAndList.getSubs();
+
+        // Para todos os users de usersList, colocar no feed de cada um
+
+        for (String u : usersList) {
+            Map<Long, Message> userFeed = feeds.get(u);
+            if (userFeed == null) {
+                userFeed = new HashMap<>();
+                feeds.put(u, userFeed);
+            }
+            userFeed.put(msg.getId(), msg);
+        }
+
+        return Result.ok();
+    }
+
+    @Override
+    public Result<Void> propagateSub(String user, String userSub) {
+        // Adicionar user aos followers de userSub
+        Map<String, List<String>> followersByDomain = myFollowersByDomain.get(userSub);
+        if (followersByDomain == null) {
+            followersByDomain = new HashMap<>();
+            myFollowersByDomain.put(userSub, followersByDomain);
+        }
+        var parts = user.split(DELIMITER);
+        String userDomain = parts[1];
+
+        List<String> usersInDomain = followersByDomain.get(userDomain);
+        if (usersInDomain == null) {
+            usersInDomain = new LinkedList<>();
+            followersByDomain.put(userDomain, usersInDomain);
+        }
+
+        usersInDomain.add(user);
 
         return Result.ok();
     }

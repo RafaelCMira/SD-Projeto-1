@@ -5,6 +5,7 @@ import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import sd2223.trab1.api.Message;
+import sd2223.trab1.api.PropMsgHelper;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.rest.FeedsService;
@@ -61,6 +62,16 @@ public class RestFeedsClient extends RestClient implements Feeds {
         return super.reTry(() -> clt_delUserFeed(user));
     }
 
+    @Override
+    public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
+        return super.reTry(() -> clt_propagateMsg(msgAndList));
+    }
+
+    @Override
+    public Result<Void> propagateSub(String user, String userSub) {
+        return super.reTry(() -> clt_propagateSub(user, userSub));
+    }
+
 
     private Result<Void> clt_delUserFeed(String user) {
         Response r = target
@@ -68,6 +79,24 @@ public class RestFeedsClient extends RestClient implements Feeds {
                 .request()
                 .delete();
 
+        return super.toJavaResult(r, Void.class);
+    }
+
+    private Result<Void> clt_propagateMsg(PropMsgHelper msgAndList) {
+        Response r = target
+                .path("propagate")
+                .request()
+                .post(Entity.entity(msgAndList, MediaType.APPLICATION_JSON));
+        return super.toJavaResult(r, Void.class);
+    }
+
+    private Result<Void> clt_propagateSub(String user, String userSub) {
+        Response r = target
+                .path(user)
+                .path("suber")
+                .path(userSub)
+                .request()
+                .post(Entity.entity(user, MediaType.APPLICATION_JSON));
         return super.toJavaResult(r, Void.class);
     }
 
