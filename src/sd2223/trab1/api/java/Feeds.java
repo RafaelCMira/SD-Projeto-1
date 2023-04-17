@@ -22,7 +22,5 @@ public interface Feeds {
 
     Result<Void> deleteUserFeed(String user);
 
-    Result<Void> propagateSub(String user, String userSub);
-
-    Result<Void> propagateMsg(String user, Message msg);
+  
 }

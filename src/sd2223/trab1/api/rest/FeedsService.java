@@ -114,7 +114,7 @@ public interface FeedsService {
     @DELETE
     @Path("/sub/{" + USER + "}/{" + USERSUB + "}")
     void unsubscribeUser(@PathParam(USER) String user, @PathParam(USERSUB) String userSub, @QueryParam(PWD) String pwd);
-    
+
     /**
      * Subscribed users.
      *
@@ -137,20 +137,5 @@ public interface FeedsService {
     @Path("/{" + USER + "}")
     void deleteUserFeed(@PathParam(USER) String user);
 
-    /**
-     * Propaga uma subscricao de um user para um userSub de outro server
-     * // Acrecentar user aos followers de userSub
-     *
-     * @param user    user que propaga    (format user@domain)
-     * @param userSub user being accessed (format user@domain)
-     * @return 204 if ok
-     */
-    @POST
-    @Path("/suber/{" + USER + "}/{" + USERSUB + "}")
-    void propagateSub(@PathParam(USER) String user, @PathParam(USERSUB) String userSub);
 
-    @POST
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Path("/propagate")
-    void propagateMsg(@PathParam(USER) String user, Message msg);
 }

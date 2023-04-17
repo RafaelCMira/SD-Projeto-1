@@ -3,12 +3,11 @@ package sd2223.trab1.server.java;
 import jakarta.inject.Singleton;
 import sd2223.trab1.Discovery;
 import sd2223.trab1.api.Message;
+import sd2223.trab1.api.PropMsgHelper;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Users;
-import sd2223.trab1.client.RestFeedsClient;
 import sd2223.trab1.client.RestUsersClient;
-import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 import sd2223.trab1.server.REST.Users.RestUsersServer;
 
 import java.net.URI;
@@ -20,8 +19,8 @@ public class JavaFeeds implements Feeds {
 
     private static Logger Log = Logger.getLogger(JavaUsers.class.getName());
     private static final String DELIMITER = "@";
-    private String domain;
-    private int feedsID;
+    private static String domain;
+    private static int feedsID;
     private final int MIN_REPLIES = 1;
 
     // Long -> id; Message
@@ -32,15 +31,20 @@ public class JavaFeeds implements Feeds {
     // Feeds de todos os users do dominio
     private final Map<String, Map<Long, Message>> feeds = new HashMap<>();
 
+    // String -> userName; ---- String -> Domain; List String -> userName de subscricoes do user em Domain
+    // Contem todas as pessoas de dominios diferentes que o user segue
+    private final Map<String, Map<String, List<String>>> mySubscriptionsByDomain = new HashMap<>();
 
-    // String -> userName; List String -> userName de quem sigo
-    // Quem estou a seguir
-    private final Map<String, List<String>> mySubscriptions = new HashMap<>();
+    // String -> userName; List String -> userName de subscricoes do user no dominio do user
+    private final Map<String, List<String>> mySubscriptionsInCurrentDomain = new HashMap<>();
 
+    // String -> userName; ---- String -> Domain; List String -> userName de followers do user em Domain
+    // Contem todos os seguidores do user em dominios diferentes do dominio do user
+    private final Map<String, Map<String, List<String>>> myFollowersByDomain = new HashMap<>();
 
-    // String -> userName; List String -> userName de quem me segue
-    // Quem me segue
-    private final Map<String, List<String>> myFollowers = new HashMap<>();
+    // String -> userName; List String -> userName de followers do user no dominio do user
+    private final Map<String, List<String>> myFollowersInCurrentDomain = new HashMap<>();
+
 
     public JavaFeeds() {
 
@@ -95,55 +99,6 @@ public class JavaFeeds implements Feeds {
         return result;
     }
 
-    private Result<Void> auxPropagateSub(String user, String userSub) {
-        var parts = userSub.split(DELIMITER);
-        String userSubDomain = parts[1];
-
-        // Descubro onde esta o servidor
-        Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestFeedsServer.SERVICE + "." + userSubDomain;
-
-        // Obtenho o URI
-        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-        URI serverUri = uris[0];
-
-        // Obtenho o servidor
-        Feeds feedsServer = new RestFeedsClient(serverUri);
-
-        // Faço um pedido para propagar a msg para o user de outro dominio
-
-        var result = feedsServer.propagateSub(user, userSub);
-
-        if (result.isOK())
-            return Result.ok();
-        else
-            return Result.error(result.error());
-    }
-
-    private Result<Void> auxPropagateMsg(String user, Message msg) {
-        var parts = user.split(DELIMITER);
-        String userDomain = parts[1];
-
-        // Descubro onde esta o servidor
-        Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestFeedsServer.SERVICE + "." + userDomain;
-
-        // Obtenho o URI
-        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-        URI serverUri = uris[0];
-
-        // Obtenho o servidor
-        Feeds feedsServer = new RestFeedsClient(serverUri);
-
-        // Faço um pedido para propagar a msg para o user de outro dominio
-        var result = feedsServer.propagateMsg(user, msg); // ENTRA AQUI
-
-        if (result.isOK())
-            return Result.ok();
-        else
-            return Result.error(result.error());
-    }
-
 
     // Coloca uma msg num user especifico
     private Result<Void> putMessageInUser(String user, Message msg) {
@@ -165,20 +120,32 @@ public class JavaFeeds implements Feeds {
     private Result<Void> postMessageInFollowers(String user, Message msg) {
         // Vou buscar a lista dos meus seguidores
         synchronized (this) {
-            List<String> followers = myFollowers.get(user);
 
-            if (followers == null) {
-                followers = new LinkedList<>();
-                myFollowers.put(user, followers);
+            // Colocar a msg no feed de todos os followers do user no mesmo dominio (mesmo dominio)
+            List<String> followersInCurrentDomain = myFollowersInCurrentDomain.get(user);
+            if (followersInCurrentDomain == null) {
+                followersInCurrentDomain = new LinkedList<>();
+                myFollowersInCurrentDomain.put(user, followersInCurrentDomain);
             }
-            for (String follower : followers) {
-                if (sameDomain(user, follower) == null)
-                    putMessageInUser(follower, msg);
-                else {
-                    var result = auxPropagateMsg(follower, msg);
-                    if (!result.isOK()) return Result.error(result.error());
-                }
+            for (String f : followersInCurrentDomain) {
+                putMessageInUser(f, msg);
             }
+
+
+            // Colocar a msg no feed de todos os followers do user com dominios diferentes.
+            Map<String, List<String>> followersByDomain = myFollowersByDomain.get(user); // todos os followers do user agrupados por dominio
+
+            if (followersByDomain == null) {
+                followersByDomain = new HashMap<>();
+                myFollowersByDomain.put(user, followersByDomain);
+            }
+
+            followersByDomain.forEach((domain, list) -> {
+                // para cada domain, vamos enviar um pedido ao servidor com aquele dominio e colocamos a msg em todos os seguidores do user naquele dominio
+                PropMsgHelper msgAndList = new PropMsgHelper(msg, list);
+                // var result = auxPropagateMsg(msgAndList);
+            });
+
         }
 
         return Result.ok();
@@ -226,14 +193,21 @@ public class JavaFeeds implements Feeds {
         }
     }
 
+
     // Metodo auxiliar para gerar id's
     private long generateId() {
+        long result = feedsID;
         Random rand = new Random();
-        long id = Math.abs(rand.nextLong());
-        while (allMessages.containsKey(id)) {
-            id = Math.abs(rand.nextLong());
+        // Adiciona dígitos aleatórios após o número inicial
+        for (int i = Long.toString(feedsID).length(); i < 19; i++) {
+            result = result * 10 + rand.nextInt(10);
         }
-        return id;
+        while (allMessages.containsKey(result)) {
+            for (int i = Long.toString(feedsID).length(); i < 19; i++) {
+                result = result * 10 + rand.nextInt(10);
+            }
+        }
+        return result;
     }
 
     private Result<Void> auxRemoveFromFeed(String user, long mid) {
@@ -323,32 +297,42 @@ public class JavaFeeds implements Feeds {
         result = auxVerifyPassword(user, pwd);
         if (!result.isOK()) return Result.error(result.error());
 
-        synchronized (this) {
-            // Adiciono o userSub as minhas subscricoes
-            List<String> subs = mySubscriptions.get(user);
-            if (subs == null) {
-                subs = new LinkedList<>();
-                mySubscriptions.put(user, subs);
+        // Se userSub esta no mesmo dominio de user
+        if (areSameDomain(user, userSub)) {
+            // Adiciono userSub as subs de user
+            List<String> userSubscriptions = mySubscriptionsInCurrentDomain.get(user);
+            if (userSubscriptions == null) {
+                userSubscriptions = new LinkedList<>();
+                mySubscriptionsInCurrentDomain.put(user, userSubscriptions);
             }
-            subs.add(userSub);
-        }
 
-        String userSubDomain = sameDomain(user, userSub);
+            userSubscriptions.add(userSub);
 
-        if (userSubDomain == null) {
-            synchronized (this) {
-                // Adiciono o user aos Followers do userSub
-                List<String> followers = myFollowers.get(userSub);
-                if (followers == null) {
-                    followers = new LinkedList<>();
-                    myFollowers.put(userSub, followers);
-                }
-                followers.add(user);
+            // Adiciono user aos follows de userSub
+            List<String> userSubFollowers = myFollowersInCurrentDomain.get(userSub);
+            if (userSubFollowers == null) {
+                userSubFollowers = new LinkedList<>();
+                myFollowersInCurrentDomain.put(userSub, userSubFollowers);
             }
+
+            userSubFollowers.add(user);
         } else {
-            // Propago o sub para outros dominios
-            Result<Void> res = auxPropagateSub(user, userSub);
-            if (!res.isOK()) return Result.error(res.error());
+            // Se estao em dominios diferentes
+
+            // Adiciono userSub as subs de user (feito da mesma forma quer esteja no mesmo dominio ou nao)
+            List<String> userSubscriptions = mySubscriptionsInCurrentDomain.get(user);
+            if (userSubscriptions == null) {
+                userSubscriptions = new LinkedList<>();
+                mySubscriptionsInCurrentDomain.put(user, userSubscriptions);
+            }
+            if (!userSubscriptions.contains(userSub))
+                userSubscriptions.add(userSub);
+
+            // Adiciono user aos folloes de userSub
+            // Faco um pedido
+            // TODO
+            // Propago o follow para o dominio do userSub
+            // var result = auxPropagateSub(user, userSub)
         }
 
         return Result.ok();
@@ -359,15 +343,14 @@ public class JavaFeeds implements Feeds {
      *
      * @param user
      * @param userSub
-     * @return null se estao, caso contrario retorna o dominio do userSub
+     * @return true se estao, false caso contrario
      */
-    private String sameDomain(String user, String userSub) {
+    private boolean areSameDomain(String user, String userSub) {
         var parts = user.split(DELIMITER);
         String userDomain = parts[1];
         parts = userSub.split(DELIMITER);
         String userSubDomain = parts[1];
-        if (!userDomain.equals(userSubDomain)) return userSubDomain;
-        else return null;
+        return userDomain.equals(userSubDomain);
     }
 
     @Override
@@ -380,27 +363,47 @@ public class JavaFeeds implements Feeds {
         result = auxVerifyPassword(user, pwd);
         if (!result.isOK()) return Result.error(result.error());
 
-        synchronized (this) {
-            // Removo a sub de userSub
-            List<String> subs = mySubscriptions.get(user);
-            if (subs == null) {
-                subs = new LinkedList<>();
-                mySubscriptions.put(user, subs);
+        // Se estao no mesmo dominio
+        if (areSameDomain(user, userSub)) {
+            // Removo userSub das subcricoes de user
+            List<String> userSubscriptions = mySubscriptionsInCurrentDomain.get(user);
+            if (userSubscriptions == null) {
+                userSubscriptions = new LinkedList<>();
+                mySubscriptionsInCurrentDomain.put(user, userSubscriptions);
             }
+            while (userSubscriptions.remove(userSub)) ;
 
-            while (subs.remove(userSub)) ;
+            // Removo user dos followers de userSub
+            List<String> userSubFollowers = myFollowersInCurrentDomain.get(userSub);
+            if (userSubFollowers == null) {
+                userSubFollowers = new LinkedList<>();
+                myFollowersInCurrentDomain.put(userSub, userSubFollowers);
+            }
+            while (userSubFollowers.remove(user)) ;
+        } else {
+            // Estao em dominios diferentes
+            // Faco o pedido
+            // TODO
+            // Propago o unfollow para o dominio do userSub
+            // var result = auxPropagateUnSub(user, userSub)
         }
 
-        synchronized (this) {
-            // Removo o follow de user
-            List<String> followers = myFollowers.get(userSub);
-            if (followers == null) {
-                followers = new LinkedList<>();
-                myFollowers.put(userSub, followers);
-            }
 
-            while (followers.remove(user)) ;
+        // Removo o user dos followers do userSub
+        if (areSameDomain(user, userSub)) {
+            // Se user esta no mesmo dominio de userSub
+            List<String> userSubFollowers = myFollowersInCurrentDomain.get(userSub);
+            if (userSubFollowers == null) {
+                userSubFollowers = new LinkedList<>();
+                myFollowersInCurrentDomain.put(userSub, userSubFollowers);
+            }
+            userSubFollowers.remove(user);
+        } else {
+            // Se estao em dominios diferentes
+            // Propago o unfollow para o dominio do userSub
+            // var result = auxPropagateUnSub(user, userSub)
         }
+
 
         return Result.ok();
     }
@@ -412,11 +415,23 @@ public class JavaFeeds implements Feeds {
             return Result.error(result.error()); // 404
         }
 
-        List<String> list;
+        // Lista resultado
+        List<String> list = new LinkedList<>();
 
-        synchronized (this) {
-            list = mySubscriptions.get(user);
-        }
+        // Adicionamos todas as subscricores que o user tem no mesmo dominio
+        List<String> res = mySubscriptionsInCurrentDomain.get(user);
+        if (res != null) list.addAll(res);
+
+        // Adicionamos todas as subscricores que o user tem em dominios diferentes
+        // TODO
+        /*
+        if (mySubscriptionsInCurrentDomain != null)
+            mySubscriptionsInCurrentDomain.forEach((domain, domainSubs) -> {
+                if (domainSubs != null) {
+                    list2.addAll(domainSubs);
+                }
+            });*/
+
 
         if (list == null) return Result.ok(new LinkedList<>());
 
@@ -426,7 +441,6 @@ public class JavaFeeds implements Feeds {
     @Override
     public Result<Void> deleteUserFeed(String user) {
         // Eliminar todas as msg do user
-
         synchronized (this) {
             Map<Long, Message> userFeed = feeds.get(user);
             if (userFeed == null) {
@@ -439,73 +453,46 @@ public class JavaFeeds implements Feeds {
                 allMessages.remove(id);
             });
 
-            // Feito no fim so
             feeds.remove(user);
         }
 
-        synchronized (this) {
-            // Retiro a subcricao de todas as pessoas e aviso que as deixo de seguir
-            List<String> userSubs = mySubscriptions.get(user);
-            if (userSubs != null)
-                for (String s : userSubs) {
-                    List<String> followers = myFollowers.get(s);
-                    while (followers.remove(user)) ;
-                }
-            mySubscriptions.remove(user);
-        }
+        // ###################################################################### //
 
-        synchronized (this) {
-            // Retiro a subscricao de quem me segue
-            List<String> uFollowers = myFollowers.get(user);
-            if (uFollowers != null)
-                for (String f : uFollowers) {
-                    List<String> subs = mySubscriptions.get(f);
-                    while (subs.remove(user)) ;
-                }
-            myFollowers.remove(user);
-        }
+        // Removo todas as subscricoes de user | tenho de avisar todos os followers que os deixei de seguir
+
+        // Remover todas as subs do mesmo dominio | aviso meus followers que os deixei de seguir
+        List<String> subscriptions = mySubscriptionsInCurrentDomain.get(user);
+        if (subscriptions != null)
+            for (String s : subscriptions) {
+                List<String> followers = myFollowersInCurrentDomain.get(s);
+                while (followers.remove(user)) ;
+            }
+        mySubscriptionsInCurrentDomain.remove(user);
+
+        // Remover todas as subs de dominios diferentes
+        // TODO
+
+
+        // Removo todos os followers do user | Tenho de avisar todos os followers que eles deixaramd e me seguir
+
+        // Remover todos os followers do mesmo dominio
+        List<String> uFollowers = myFollowersInCurrentDomain.get(user);
+        if (uFollowers != null)
+            for (String f : uFollowers) {
+                List<String> subs = mySubscriptionsInCurrentDomain.get(f);
+                while (subs.remove(user)) ;
+            }
+        myFollowersInCurrentDomain.remove(user);
+
+        // Remover todos os followers de dominios diferentes
+        // TODO
+
+
+        // ###################################################################### //
+
 
         return Result.ok();
     }
 
-    @Override
-    public Result<Void> propagateSub(String user, String userSub) {
-        synchronized (this) {
-            List<String> follows = myFollowers.get(userSub);
-            if (follows == null) {
-                follows = new LinkedList<>();
-            }
-            follows.add(user);
-        }
-
-        return Result.ok();
-        // return Result.error(Result.ErrorCode.CONFLICT); // 409
-    }
-
-    @Override
-    public Result<Void> propagateMsg(String user, Message msg) {
-        // return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
-        // ja entra aqui
-
-        synchronized (this) {
-            Map<Long, Message> userFeed = feeds.get(user);
-
-            if (msg == null) return Result.error(Result.ErrorCode.CONFLICT);
-
-            if (userFeed == null) {
-                userFeed = new HashMap<>();
-                feeds.put(user, userFeed);
-            }
-
-            Message res = userFeed.put(msg.getId(), msg);
-
-            if (res == null) return Result.error(Result.ErrorCode.NOT_FOUND); // DA ESTE ERRO, mas porque?
-
-            if (res.getId() == msg.getId()) return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
-
-
-            return Result.ok();
-        }
-    }
 
 }
