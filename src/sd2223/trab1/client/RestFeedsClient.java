@@ -63,31 +63,13 @@ public class RestFeedsClient extends RestClient implements Feeds {
     }
 
     @Override
-    public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
-        return super.reTry(() -> clt_propagateMsg(msgAndList));
-    }
-
-    @Override
     public Result<Void> propagateSub(String user, String userSub) {
         return super.reTry(() -> clt_propagateSub(user, userSub));
     }
 
-
-    private Result<Void> clt_delUserFeed(String user) {
-        Response r = target
-                .path(user)
-                .request()
-                .delete();
-
-        return super.toJavaResult(r, Void.class);
-    }
-
-    private Result<Void> clt_propagateMsg(PropMsgHelper msgAndList) {
-        Response r = target
-                .path("propagate")
-                .request()
-                .post(Entity.entity(msgAndList, MediaType.APPLICATION_JSON));
-        return super.toJavaResult(r, Void.class);
+    @Override
+    public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
+        return super.reTry(() -> clt_propagateMsg(msgAndList));
     }
 
     private Result<Void> clt_propagateSub(String user, String userSub) {
@@ -100,5 +82,20 @@ public class RestFeedsClient extends RestClient implements Feeds {
         return super.toJavaResult(r, Void.class);
     }
 
+    private Result<Void> clt_propagateMsg(PropMsgHelper msgAndList) {
+        Response r = target
+                .path("propagate")
+                .request()
+                .post(Entity.entity(msgAndList, MediaType.APPLICATION_JSON));
+        return super.toJavaResult(r, Void.class);
+    }
+
+    private Result<Void> clt_delUserFeed(String user) {
+        Response r = target
+                .path(user)
+                .request()
+                .delete();
+        return super.toJavaResult(r, Void.class);
+    }
 
 }

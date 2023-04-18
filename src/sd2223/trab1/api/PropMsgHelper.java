@@ -3,10 +3,12 @@ package sd2223.trab1.api;
 import java.util.List;
 
 public class PropMsgHelper {
-
     private Message msg;
-
     private List<String> subs;
+
+    public PropMsgHelper() {
+       
+    }
 
     public PropMsgHelper(Message msg, List<String> subs) {
         this.msg = msg;

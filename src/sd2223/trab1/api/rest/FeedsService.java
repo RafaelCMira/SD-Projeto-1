@@ -139,15 +139,6 @@ public interface FeedsService {
     void deleteUserFeed(@PathParam(USER) String user);
 
 
-    // Mandar para um dominio,
-    // Criar uma classe que receba estes dois argumentos no construtor e envio esse objeto no propagate
-    // Assim ja se pode usar o consumes com apenas 1 objeto
-    @POST
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Path("/propagate/{" + USER + "}")
-    void propagateMsg(PropMsgHelper msgAndList);
-
-
     /**
      * Propaga uma subscricao de um user para um userSub de outro server
      * // Acrecentar user aos followers de userSub
@@ -158,8 +149,18 @@ public interface FeedsService {
      */
     @POST
     @Path("/{" + USER + "}/suber/" + "{" + USERSUB + "}")
-    //@Path("/suber/{" + USER + "}/{" + USERSUB + "}")  //como tinhamos antes
     void propagateSub(@PathParam(USER) String user, @PathParam(USERSUB) String userSub);
+
+    /**
+     * Propaga uma mensagem de um user que esta noutro dominio para todos os seguidores de um outro dominio.
+     *
+     * @param msgAndList objeto que contém a mensagem a ser colocada no subscritores do user que postou a msg e, a lista de subscritores do user no dominio para onde e feito o pedido.
+     * @return 204 if ok
+     */
+    @POST
+    @Path("/propagate")
+    @Consumes(MediaType.APPLICATION_JSON)
+    void propagateMsg(PropMsgHelper msgAndList);
 
 
 }

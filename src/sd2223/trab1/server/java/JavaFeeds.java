@@ -12,15 +12,11 @@ import sd2223.trab1.client.RestUsersClient;
 import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 import sd2223.trab1.server.REST.Users.RestUsersServer;
 
-import java.net.DatagramSocket;
 import java.net.URI;
 import java.util.*;
-import java.util.logging.Logger;
 
 @Singleton
 public class JavaFeeds implements Feeds {
-
-    private static Logger Log = Logger.getLogger(JavaUsers.class.getName());
     private static final String DELIMITER = "@";
     private static String feedsDomain;
     private static int feedsID;
@@ -103,20 +99,20 @@ public class JavaFeeds implements Feeds {
     }
 
     private Result<Void> auxPropMsg(String serverDomain, PropMsgHelper obj) {
-
         System.out.println("Entrei no auxPropMsg do javaFeeds");
         // Descubro onde esta o servidor
         Discovery discovery = Discovery.getInstance();
         String serviceDomain = RestFeedsServer.SERVICE + "." + serverDomain;
         // Obtenho o URI
+        System.out.println("serviceDomain: " + serviceDomain);
         URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
         URI serverUri = uris[0];
         // Obtenho o servidor
         Feeds feedsServer = new RestFeedsClient(serverUri);
+        System.out.println("Servidor:" + feedsServer);
 
-
+        // Nunca entra neste método
         var result = feedsServer.propagateMsg(obj);
-
         return result;
     }
 
@@ -139,7 +135,7 @@ public class JavaFeeds implements Feeds {
         return result;
     }
 
-    // Coloca uma msg num user especifico
+    // Coloca uma msg num user
     private Result<Void> putMessageInUser(String user, Message msg) {
 
         synchronized (this) {
@@ -155,9 +151,9 @@ public class JavaFeeds implements Feeds {
         return Result.ok();
     }
 
-    // Metodo que coloca uma msg em todos os followers de alguem
+
+    // Metodo que coloca uma msg em todos os followers do user
     private Result<Void> postMessageInFollowers(String user, Message msg) {
-        // Vou buscar a lista dos meus seguidores
         synchronized (this) {
             // Colocar a msg no feed de todos os followers do user no mesmo dominio (mesmo dominio)
             List<String> followersInCurrentDomain = myFollowersInCurrentDomain.get(user);
@@ -168,52 +164,44 @@ public class JavaFeeds implements Feeds {
             for (String f : followersInCurrentDomain) {
                 putMessageInUser(f, msg);
             }
+        } //  Coloca nos followers do dominio do user
 
-            // Colocar a msg no feed de todos os followers do user com dominios diferentes.
-            Map<String, List<String>> followersByDomain = myFollowersByDomain.get(user); // todos os followers do user agrupados por dominio
+        // Colocar a msg no feed de todos os followers do user com dominios diferentes.
+        Map<String, List<String>> followersByDomain = myFollowersByDomain.get(user); // todos os followers do user agrupados por dominio
 
-            if (followersByDomain == null) {
-                followersByDomain = new HashMap<>();
-                myFollowersByDomain.put(user, followersByDomain);
-            }
-
-            for (Map.Entry<String, List<String>> entry : followersByDomain.entrySet()) {
-                PropMsgHelper msgAndList = new PropMsgHelper(msg, entry.getValue());
-                System.out.println("ENTREI NO METODO POST IN FOLLOWERS");
-                new Thread(() -> {
-                    System.out.println("ENTREI NA THREAD");
-                    try {
-                        System.out.println("ENTREI NO CATCH");
-                        var result = auxPropMsg(String.valueOf(entry), msgAndList);
-                        //if (!result.isOK()) return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }).start();
-            }
+        if (followersByDomain == null) {
+            followersByDomain = new HashMap<>();
+            myFollowersByDomain.put(user, followersByDomain);
         }
 
+        for (Map.Entry<String, List<String>> entry : followersByDomain.entrySet()) {
+            PropMsgHelper msgAndList = new PropMsgHelper(msg, entry.getValue());
+            System.out.println("ENTREI NO METODO POST IN FOLLOWERS");
+            System.out.println("Domain:" + entry.getKey());
+            var result = auxPropMsg(entry.getKey(), msgAndList);
+            System.out.println("Ja processou o pedido");
+            if (result.isOK()) return Result.ok();
+            if (!result.isOK()) return Result.error(result.error());
+        }
         return Result.ok();
     }
+
 
     @Override
     public Result<Long> postMessage(String user, String pwd, Message msg) {
         if (msg == null || user == null || pwd == null) {
             return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
         }
-
         var parts = user.split(DELIMITER);
         String userDomain = parts[1];
-        if (!userDomain.equals(msg.getDomain())) {
+        if (!userDomain.equals(feedsDomain)) {
             return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
         }
 
         var result = auxVerifyPassword(user, pwd);
-
         if (result.isOK()) {
             // Gerar um id, timeStamp, para a msg
             long id;
-
             synchronized (this) {
                 id = generateId();
                 msg.setId(id);
@@ -227,12 +215,8 @@ public class JavaFeeds implements Feeds {
 
             // Coloco a msg no feed de todos os users que me seguem
             var res = postMessageInFollowers(user, msg);
-
             if (res.isOK()) return Result.ok(id);
             else return Result.error(res.error());
-
-            //return Result.ok(id);
-
         } else {
             return Result.error(result.error());
         }
@@ -381,12 +365,6 @@ public class JavaFeeds implements Feeds {
 
             var res = auxPropSub(user, userSub);
             if (!res.isOK()) return Result.error(Result.ErrorCode.CONFLICT);
-
-            // Adiciono user aos followers de userSub
-            // Faco um pedido
-            // TODO
-            // Propago o follow para o dominio do userSub
-
         }
 
         return Result.ok();
@@ -548,7 +526,9 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
-        System.out.println("ENTREI NO METODO");
+        if (msgAndList == null || msgAndList != null) return Result.error(Result.ErrorCode.CONFLICT);
+        System.out.println("ENTREI NO METODO propagateMsg"); // Nunca faz este print nem devolve o erro CONFLIT
+
         Message msg = msgAndList.getMsg();
         List<String> usersList = msgAndList.getSubs();
 
@@ -561,7 +541,6 @@ public class JavaFeeds implements Feeds {
             }
             userFeed.put(msg.getId(), msg);
         }
-
         return Result.ok();
     }
 
