@@ -158,7 +158,7 @@ public interface FeedsService {
      */
     @POST
     @Path("/{" + USER + "}/suber/" + "{" + USERSUB + "}")
-    //     @Path("/suber/{" + USER + "}/{" + USERSUB + "}") como tinhamos dantes
+    //@Path("/suber/{" + USER + "}/{" + USERSUB + "}")  //como tinhamos antes
     void propagateSub(@PathParam(USER) String user, @PathParam(USERSUB) String userSub);
 
 

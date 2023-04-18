@@ -9,6 +9,7 @@ import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Users;
 import sd2223.trab1.client.RestFeedsClient;
 import sd2223.trab1.client.RestUsersClient;
+import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 import sd2223.trab1.server.REST.Users.RestUsersServer;
 
 import java.net.URI;
@@ -121,7 +122,7 @@ public class JavaFeeds implements Feeds {
         String userSubDomain = parts[1];
         // Descubro onde esta o servidor
         Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestUsersServer.SERVICE + "." + userSubDomain;
+        String serviceDomain = RestFeedsServer.SERVICE + "." + userSubDomain;
         // Obtenho o URI
         URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
         URI serverUri = uris[0];
@@ -369,7 +370,7 @@ public class JavaFeeds implements Feeds {
 
             usersInDomain.add(userSub);
 
-            var res = auxPropSub(user, userSub);
+            var res = auxPropSub(userSub, user);
             if (!res.isOK()) return Result.error(res.error());
 
             // Adiciono user aos followers de userSub
@@ -468,13 +469,13 @@ public class JavaFeeds implements Feeds {
 
         // Adicionamos todas as subscricores que o user tem em dominios diferentes
         // TODO
-        /*
+
         if (mySubscriptionsInCurrentDomain != null)
             mySubscriptionsInCurrentDomain.forEach((domain, domainSubs) -> {
                 if (domainSubs != null) {
-                    list2.addAll(domainSubs);
+                    list.addAll(domainSubs);
                 }
-            });*/
+            });
 
 
         if (list == null) return Result.ok(new LinkedList<>());
@@ -560,6 +561,8 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Void> propagateSub(String user, String userSub) {
+        System.out.println("mostra o outrline");
+
         // Adicionar user aos followers de userSub
         Map<String, List<String>> followersByDomain = myFollowersByDomain.get(userSub);
         if (followersByDomain == null) {
