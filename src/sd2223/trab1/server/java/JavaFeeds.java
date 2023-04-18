@@ -177,6 +177,7 @@ public class JavaFeeds implements Feeds {
                 // para cada domain, vamos enviar um pedido ao servidor com aquele dominio e colocamos a msg em todos os seguidores do user naquele dominio
                 PropMsgHelper msgAndList = new PropMsgHelper(msg, list);
                 var result = auxPropMsg(domain, msgAndList);
+                // if (!result.isOK()) return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
             });
         }
 
@@ -464,8 +465,6 @@ public class JavaFeeds implements Feeds {
         if (res != null) list.addAll(res);
 
         // Adicionamos todas as subscricores que o user tem em dominios diferentes
-        // TODO
-
         if (mySubscriptionsByDomain.get(user) != null) {
             mySubscriptionsByDomain.get(user).forEach((domain, domainSubs) -> {
                 if (domainSubs != null) {
@@ -474,10 +473,8 @@ public class JavaFeeds implements Feeds {
             });
         }
 
-
         if (list == null) return Result.ok(new LinkedList<>());
 
-        //return Result.ok(list);
         return Result.ok(list);
     }
 
@@ -540,11 +537,9 @@ public class JavaFeeds implements Feeds {
     @Override
     public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
         Message msg = msgAndList.getMsg();
-
         List<String> usersList = msgAndList.getSubs();
 
         // Para todos os users de usersList, colocar no feed de cada um
-
         for (String u : usersList) {
             Map<Long, Message> userFeed = feeds.get(u);
             if (userFeed == null) {
@@ -560,8 +555,6 @@ public class JavaFeeds implements Feeds {
     @Override
     public Result<Void> propagateSub(String user, String userSub) {
         // Adicionar user aos followers de userSub
-        System.out.println("User: " + user + " ----- " + "UserSub: " + userSub);
-
         Map<String, List<String>> followersByDomain = myFollowersByDomain.get(userSub);
         if (followersByDomain == null) {
             followersByDomain = new HashMap<>();
