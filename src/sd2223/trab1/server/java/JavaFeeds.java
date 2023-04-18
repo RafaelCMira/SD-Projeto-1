@@ -9,6 +9,7 @@ import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Users;
 import sd2223.trab1.client.RestFeedsClient;
 import sd2223.trab1.client.RestUsersClient;
+import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 import sd2223.trab1.server.REST.Users.RestUsersServer;
 
 import java.net.URI;
@@ -103,14 +104,13 @@ public class JavaFeeds implements Feeds {
     private Result<Void> auxPropMsg(String serverDomain, PropMsgHelper obj) {
         // Descubro onde esta o servidor
         Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestUsersServer.SERVICE + "." + serverDomain;
+        String serviceDomain = RestFeedsServer.SERVICE + "." + serverDomain;
         // Obtenho o URI
         URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
         URI serverUri = uris[0];
         // Obtenho o servidor
         Feeds feedsServer = new RestFeedsClient(serverUri);
 
-        // Faço um pedido para verificar a password. (Tb verifica se o user existe, entre outras coisas)
         var result = feedsServer.propagateMsg(obj);
 
         return result;
@@ -121,7 +121,7 @@ public class JavaFeeds implements Feeds {
         String userSubDomain = parts[1];
         // Descubro onde esta o servidor
         Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestUsersServer.SERVICE + "." + userSubDomain;
+        String serviceDomain = RestFeedsServer.SERVICE + "." + userSubDomain;
         // Obtenho o URI
         URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
         URI serverUri = uris[0];
@@ -130,9 +130,6 @@ public class JavaFeeds implements Feeds {
         Feeds feedsServer = new RestFeedsClient(serverUri);
 
         // Faço um pedido para verificar a password. (Tb verifica se o user existe, entre outras coisas)
-
-        // if (feedsServer != null) return Result.error(Result.ErrorCode.CONFLICT);
-
         var result = feedsServer.propagateSub(user, userSub);
 
         return result;
@@ -361,16 +358,16 @@ public class JavaFeeds implements Feeds {
             var parts = userSub.split(DELIMITER);
             String userSubDomain = parts[1];
 
-            List<String> usersInDomain = subscriptionsByDomain.get(userSubDomain);
-            if (usersInDomain == null) {
-                usersInDomain = new LinkedList<>();
-                subscriptionsByDomain.put(userSubDomain, usersInDomain);
+            List<String> subsInDomain = subscriptionsByDomain.get(userSubDomain);
+            if (subsInDomain == null) {
+                subsInDomain = new LinkedList<>();
+                subscriptionsByDomain.put(userSubDomain, subsInDomain);
             }
 
-            usersInDomain.add(userSub);
+            subsInDomain.add(userSub);
 
             var res = auxPropSub(user, userSub);
-            if (!res.isOK()) return Result.error(res.error());
+            if (!res.isOK()) return Result.error(Result.ErrorCode.CONFLICT);
 
             // Adiciono user aos followers de userSub
             // Faco um pedido
@@ -468,17 +465,19 @@ public class JavaFeeds implements Feeds {
 
         // Adicionamos todas as subscricores que o user tem em dominios diferentes
         // TODO
-        /*
-        if (mySubscriptionsInCurrentDomain != null)
-            mySubscriptionsInCurrentDomain.forEach((domain, domainSubs) -> {
+
+        if (mySubscriptionsByDomain.get(user) != null) {
+            mySubscriptionsByDomain.get(user).forEach((domain, domainSubs) -> {
                 if (domainSubs != null) {
-                    list2.addAll(domainSubs);
+                    list.addAll(domainSubs);
                 }
-            });*/
+            });
+        }
 
 
         if (list == null) return Result.ok(new LinkedList<>());
 
+        //return Result.ok(list);
         return Result.ok(list);
     }
 
@@ -561,6 +560,8 @@ public class JavaFeeds implements Feeds {
     @Override
     public Result<Void> propagateSub(String user, String userSub) {
         // Adicionar user aos followers de userSub
+        System.out.println("User: " + user + " ----- " + "UserSub: " + userSub);
+
         Map<String, List<String>> followersByDomain = myFollowersByDomain.get(userSub);
         if (followersByDomain == null) {
             followersByDomain = new HashMap<>();
