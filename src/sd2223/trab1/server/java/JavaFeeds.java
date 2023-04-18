@@ -12,6 +12,7 @@ import sd2223.trab1.client.RestUsersClient;
 import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 import sd2223.trab1.server.REST.Users.RestUsersServer;
 
+import java.net.DatagramSocket;
 import java.net.URI;
 import java.util.*;
 import java.util.logging.Logger;
@@ -102,6 +103,8 @@ public class JavaFeeds implements Feeds {
     }
 
     private Result<Void> auxPropMsg(String serverDomain, PropMsgHelper obj) {
+
+        System.out.println("Entrei no auxPropMsg do javaFeeds");
         // Descubro onde esta o servidor
         Discovery discovery = Discovery.getInstance();
         String serviceDomain = RestFeedsServer.SERVICE + "." + serverDomain;
@@ -110,6 +113,7 @@ public class JavaFeeds implements Feeds {
         URI serverUri = uris[0];
         // Obtenho o servidor
         Feeds feedsServer = new RestFeedsClient(serverUri);
+
 
         var result = feedsServer.propagateMsg(obj);
 
@@ -173,12 +177,20 @@ public class JavaFeeds implements Feeds {
                 myFollowersByDomain.put(user, followersByDomain);
             }
 
-            followersByDomain.forEach((domain, list) -> {
-                // para cada domain, vamos enviar um pedido ao servidor com aquele dominio e colocamos a msg em todos os seguidores do user naquele dominio
-                PropMsgHelper msgAndList = new PropMsgHelper(msg, list);
-                var result = auxPropMsg(domain, msgAndList);
-                // if (!result.isOK()) return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
-            });
+            for (Map.Entry<String, List<String>> entry : followersByDomain.entrySet()) {
+                PropMsgHelper msgAndList = new PropMsgHelper(msg, entry.getValue());
+                System.out.println("ENTREI NO METODO POST IN FOLLOWERS");
+                new Thread(() -> {
+                    System.out.println("ENTREI NA THREAD");
+                    try {
+                        System.out.println("ENTREI NO CATCH");
+                        var result = auxPropMsg(String.valueOf(entry), msgAndList);
+                        //if (!result.isOK()) return Result.error(Result.ErrorCode.NOT_IMPLEMENTED);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }).start();
+            }
         }
 
         return Result.ok();
@@ -536,6 +548,7 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
+        System.out.println("ENTREI NO METODO");
         Message msg = msgAndList.getMsg();
         List<String> usersList = msgAndList.getSubs();
 
