@@ -24,7 +24,8 @@ public class JavaFeeds implements Feeds {
 
     // Long -> id; Message
     // Todas as msgs do dominio
-    private final Map<Long, Message> allMessages = new HashMap<>();
+    // Apenas contem os ids que mapeiam um valor booleano. Se o id estiver a true entao esta em a ser usado, senao podemos ficar com ele para uma proxima msg
+    private final Map<Long, Boolean> allMessages = new HashMap<>();
 
     // String -> userName; Mapa Long -> id; Message
     // Feeds de todos os users do dominio
@@ -54,218 +55,178 @@ public class JavaFeeds implements Feeds {
         this.feedsID = feedsID;
     }
 
+    /**
+     * Devolve um servidor de feeds do dominio do user.
+     *
+     * @param domain dominio do servidor
+     * @return servidor de feeds
+     */
+    private Feeds getFeedsServer(String domain) {
+        // Descubro onde esta o servidor
+        Discovery discovery = Discovery.getInstance();
+        String serviceDomain = RestFeedsServer.SERVICE + "." + domain;
+        // Obtenho o URI
+        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
+        URI serverUri = uris[0];
+        // Devolvo o servidor
+        return new RestFeedsClient(serverUri);
+    }
+
+    /**
+     * Devolve um servidor de users daquele dominio.
+     *
+     * @param domain dominio do servidor.
+     * @return servidor de users
+     */
+    private Users getUsersServer(String domain) {
+        // Descubro onde esta o servidor
+        Discovery discovery = Discovery.getInstance();
+        String serviceDomain = RestUsersServer.SERVICE + "." + domain;
+        // Obtenho o URI
+        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
+        URI serverUri = uris[0];
+        // Devolvo o servidor
+        return new RestUsersClient(serverUri);
+    }
+
+    private String getUserDomain(String user) {
+        var parts = user.split(DELIMITER);
+        String userDomain = parts[1];
+        return userDomain;
+    }
+
     private Result<Void> auxVerifyPassword(String user, String pwd) {
         var parts = user.split(DELIMITER);
         String userName = parts[0];
         String userDomain = parts[1];
-
-        // Descubro onde esta o servidor
-        Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestUsersServer.SERVICE + "." + userDomain;
-
-        // Obtenho o URI
-        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-        URI serverUri = uris[0];
-
-        // Obtenho o servidor
-        Users usersServer = new RestUsersClient(serverUri);
-
+        Users usersServer = getUsersServer(userDomain);
         // Faço um pedido para verificar a password. (Tb verifica se o user existe, entre outras coisas)
-        var result = usersServer.verifyPassword(userName, pwd);
-
-        return result;
+        return usersServer.verifyPassword(userName, pwd);
     }
 
     private Result<Void> auxCheckUser(String user) {
         var parts = user.split(DELIMITER);
         String userName = parts[0];
         String userDomain = parts[1];
-
-        // Descubro onde esta o servidor
-        Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestUsersServer.SERVICE + "." + userDomain;
-
-        // Obtenho o URI
-        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-        URI serverUri = uris[0];
-
-        // Obtenho o servidor
-        Users usersServer = new RestUsersClient(serverUri);
-
-        // Faço um pedido para verificar a password. (Tb verifica se o user existe, entre outras coisas)
-        var result = usersServer.checkUser(userName);
-
-        return result;
+        Users usersServer = getUsersServer(userDomain);
+        return usersServer.checkUser(userName);
     }
 
     private Result<Void> auxPropMsg(String serverDomain, PropMsgHelper obj) {
-        // Descubro onde esta o servidor
-        Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestFeedsServer.SERVICE + "." + serverDomain;
-        // Obtenho o URI
-        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-        URI serverUri = uris[0];
-        // Obtenho o servidor
-        Feeds feedsServer = new RestFeedsClient(serverUri);
-
-        // Nunca entra neste método
-        var result = feedsServer.propagateMsg(obj);
-        return result;
+        Feeds feedsServer = getFeedsServer(serverDomain);
+        return feedsServer.propagateMsg(obj);
     }
 
     private Result<Void> auxPropSub(String user, String userSub) {
-        var parts = userSub.split(DELIMITER);
-        String userSubDomain = parts[1];
-        // Descubro onde esta o servidor
-        Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestFeedsServer.SERVICE + "." + userSubDomain;
-        // Obtenho o URI
-        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-        URI serverUri = uris[0];
-
-        // Obtenho o servidor
-        Feeds feedsServer = new RestFeedsClient(serverUri);
-
-        // Faço um pedido para verificar a password. (Tb verifica se o user existe, entre outras coisas)
-        var result = feedsServer.propagateSub(user, userSub);
-
-        return result;
+        String userSubDomain = getUserDomain(userSub);
+        Feeds feedsServer = getFeedsServer(userSubDomain);
+        return feedsServer.propagateSub(user, userSub);
     }
 
     private Result<Void> auxPropUnsub(String user, String userSub) {
-        var parts = userSub.split(DELIMITER);
-        String userSubDomain = parts[1];
-        // Descubro onde esta o servidor
-        Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestFeedsServer.SERVICE + "." + userSubDomain;
-        // Obtenho o URI
-        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-        URI serverUri = uris[0];
-        // Obtenho o servidor
-        Feeds feedsServer = new RestFeedsClient(serverUri);
-
-        var result = feedsServer.propagateUnsub(user, userSub);
-        return result;
+        String userSubDomain = getUserDomain(userSub);
+        Feeds feedsServer = getFeedsServer(userSubDomain);
+        return feedsServer.propagateUnsub(user, userSub);
     }
+
 
     // Coloca uma msg num user
     private Result<Void> putMessageInUser(String user, Message msg) {
-
         synchronized (this) {
-            Map<Long, Message> userFeed = feeds.get(user);
-
-            if (userFeed == null) {
-                userFeed = new HashMap<>();
-                feeds.put(user, userFeed);
-            }
+            Map<Long, Message> userFeed = feeds.computeIfAbsent(user, k -> new HashMap<>());
             userFeed.put(msg.getId(), msg);
         }
-
         return Result.ok();
     }
 
 
     // Metodo que coloca uma msg em todos os followers do user
     private Result<Void> postMessageInFollowers(String user, Message msg) {
-        synchronized (this) {
-            // Colocar a msg no feed de todos os followers do user no mesmo dominio (mesmo dominio)
-            List<String> followersInCurrentDomain = myFollowersInCurrentDomain.get(user);
-            if (followersInCurrentDomain == null) {
-                followersInCurrentDomain = new LinkedList<>();
-                myFollowersInCurrentDomain.put(user, followersInCurrentDomain);
-            }
-            for (String f : followersInCurrentDomain) {
+        synchronized (this) {// mesmo dominio
+            // Colocar a msg no feed de todos os followers do user no mesmo dominio
+            List<String> followersInCurrentDomain = myFollowersInCurrentDomain.computeIfAbsent(user, k -> new LinkedList<>());
+
+            for (String f : followersInCurrentDomain)
                 putMessageInUser(f, msg);
-            }
-        } //  Coloca nos followers do dominio do user
+        }
 
         // Colocar a msg no feed de todos os followers do user com dominios diferentes.
-        Map<String, List<String>> followersByDomain = myFollowersByDomain.get(user); // todos os followers do user agrupados por dominio
+        Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(user, k -> new HashMap<>()); // todos os followers do user agrupados por dominio
 
-        if (followersByDomain == null) {
-            followersByDomain = new HashMap<>();
-            myFollowersByDomain.put(user, followersByDomain);
+        for (String domain : followersByDomain.keySet()) {
+            PropMsgHelper msgAndList = new PropMsgHelper(msg, followersByDomain.get(domain));
+            auxPropMsg(domain, msgAndList);
         }
 
-        for (Map.Entry<String, List<String>> entry : followersByDomain.entrySet()) {
-            PropMsgHelper msgAndList = new PropMsgHelper(msg, entry.getValue());
-            var result = auxPropMsg(entry.getKey(), msgAndList);
-            if (result.isOK()) return Result.ok();
-            if (!result.isOK()) return Result.error(result.error());
-        }
         return Result.ok();
     }
 
-
     @Override
     public Result<Long> postMessage(String user, String pwd, Message msg) {
-        if (msg == null || user == null || pwd == null) {
-            return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
-        }
-        var parts = user.split(DELIMITER);
-        String userDomain = parts[1];
-        if (!userDomain.equals(feedsDomain)) {
-            return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
-        }
+        if (msg == null || user == null || pwd == null) return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
+
+        String userDomain = getUserDomain(user);
+        if (!userDomain.equals(feedsDomain)) return Result.error(Result.ErrorCode.BAD_REQUEST); // 400
 
         var result = auxVerifyPassword(user, pwd);
-        if (result.isOK()) {
-            // Gerar um id, timeStamp, para a msg
-            long id;
-            synchronized (this) {
-                id = generateId();
-                msg.setId(id);
-                msg.setCreationTime(System.currentTimeMillis());
-                // Coloco no allMessages
-                allMessages.put(id, msg);
-            }
+        if (!result.isOK()) return Result.error(result.error());
 
-            // Colocar a msg no user correto
-            putMessageInUser(user, msg);
-
-            // Coloco a msg no feed de todos os users que me seguem
-            var res = postMessageInFollowers(user, msg);
-            if (res.isOK()) return Result.ok(id);
-            else return Result.error(res.error());
-        } else {
-            return Result.error(result.error());
+        long id;
+        synchronized (this) {
+            id = generateId();
+            msg.setId(id);
+            msg.setCreationTime(System.currentTimeMillis());
+            // Coloco no allMessages
+            allMessages.put(id, true);
         }
+
+        // Colocar a msg no user correto
+        putMessageInUser(user, msg);
+
+        // Coloco a msg no feed de todos os users que me seguem
+        var res = postMessageInFollowers(user, msg);
+        if (!res.isOK()) return Result.error(res.error());
+
+        return Result.ok(id);
     }
 
 
-    // Metodo auxiliar para gerar id's
+    /**
+     * Metodo que gera um id para a msg. O primeiro digito do id e o numero do servidor em que foi resgistada.
+     *
+     * @return id unico para uma nova msg no servidor
+     */
     private long generateId() {
         long result = feedsID;
         Random rand = new Random();
         // Adiciona dígitos aleatórios após o número inicial
-        for (int i = Long.toString(feedsID).length(); i < 19; i++) {
+        for (int i = Long.toString(feedsID).length(); i < 19; i++)
             result = result * 10 + rand.nextInt(10);
-        }
-        while (allMessages.containsKey(result)) {
-            for (int i = Long.toString(feedsID).length(); i < 19; i++) {
-                result = result * 10 + rand.nextInt(10);
+
+        while (true) {
+            if (allMessages.get(result) == null || allMessages.get(result) == false) {
+                allMessages.put(result, true);
+                return result;
+            } else {
+                for (int i = Long.toString(feedsID).length(); i < 19; i++)
+                    result = result * 10 + rand.nextInt(10);
             }
         }
-        return result;
     }
 
     private Result<Void> auxRemoveFromFeed(String user, long mid) {
         synchronized (this) {
-            Map<Long, Message> userFeed = feeds.get(user);
-            if (userFeed == null) {
-                userFeed = new HashMap<>();
-                feeds.put(user, userFeed);
-            }
-            // Verifica se o user tem a msg no feed
-            Message msg = userFeed.get(mid);
-            if (msg == null) return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+            Map<Long, Message> userFeed = feeds.computeIfAbsent(user, k -> new HashMap<>());
 
-            // Se tem a msg entao remove
+            Message msg = userFeed.get(mid);
+            if (msg == null)   // Verifica se o user tem a msg no feed
+                return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+
             userFeed.remove(mid);
         }
 
         synchronized (this) {
-            allMessages.remove(mid);
+            allMessages.put(mid, false);
         }
 
         return Result.ok();
@@ -273,97 +234,61 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Void> removeFromPersonalFeed(String user, long mid, String pwd) {
-        // Verifica se o user existe e se password esta correta
         var result = auxVerifyPassword(user, pwd);
-        if (result.isOK()) {
-            var res = auxRemoveFromFeed(user, mid);
-            if (res.isOK()) return Result.ok();
-            else return Result.error(result.error());
-        } else
-            return Result.error(result.error());
+
+        if (!result.isOK()) return Result.error(result.error());
+
+        return auxRemoveFromFeed(user, mid);
     }
 
     @Override
     public Result<Message> getMessage(String user, long mid) {
         synchronized (this) {
-            var parts = user.split(DELIMITER);
-            String userDomain = parts[1];
-            System.out.println("serverFeedsDomain: " + feedsDomain);
-            System.out.println("UserDomain: " + userDomain);
+            String userDomain = getUserDomain(user);
 
             if (userDomain.equals(feedsDomain)) {
                 Map<Long, Message> userFeed = feeds.get(user);
-                // Se o user nao existe
-                if (userFeed == null) {
+
+                if (userFeed == null) // Se o user nao existe
                     return Result.error(Result.ErrorCode.NOT_FOUND); // 404
-                }
+
                 Message msg = userFeed.get(mid);
-                // Se a msg nao exite
-                if (msg == null) {
-                    return Result.error(Result.ErrorCode.NOT_FOUND); // 404
-                } else return Result.ok(msg);
+
+                // Se a msg nao existe
+                if (msg == null) return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+
+                return Result.ok(msg);
+
             } else {
                 // e so fazer um getMessage ao servidor correto
-                Discovery discovery = Discovery.getInstance();
-                String serviceDomain = RestFeedsServer.SERVICE + "." + userDomain;
-                System.out.println("serviceDomain " + serviceDomain);
-                URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-                URI serverUri = uris[0];
-                // Obtenho o servidor
-                Feeds feedsServer = new RestFeedsClient(serverUri);
-
-                System.out.println("servidor encontrado: " + feedsServer);
-
-                var result = feedsServer.getMessage(user, mid);
-                if (result.isOK()) return Result.ok(result.value());
-                else return Result.error(Result.ErrorCode.NOT_FOUND);
+                Feeds feedsServer = getFeedsServer(userDomain);
+                return feedsServer.getMessage(user, mid);
             }
         }
     }
 
     @Override
     public Result<List<Message>> getMessages(String user, long time) {
-        var parts = user.split(DELIMITER);
-        String userDomain = parts[1];
+        String userDomain = getUserDomain(user);
         if (userDomain.equals(feedsDomain)) {
             var result = auxCheckUser(user);
+            if (!result.isOK()) return Result.error(result.error());
+
             List<Message> list = new LinkedList<>();
-
-            if (result.isOK()) {
-                synchronized (this) {
-                    Map<Long, Message> userFeed = feeds.get(user);
-                    if (userFeed == null) {
-                        userFeed = new HashMap<>();
-                        feeds.put(user, userFeed);
-                    }
-
-                    userFeed.forEach((id, msg) -> {
-                        if (msg.getCreationTime() > time)
-                            list.add(msg);
-                    });
-                }
-                return Result.ok(list);
-            } else {
-                return Result.error(result.error());
+            synchronized (this) {
+                Map<Long, Message> userFeed = feeds.computeIfAbsent(user, k -> new HashMap<>());
+                userFeed.forEach((id, msg) -> {
+                    if (msg.getCreationTime() > time)
+                        list.add(msg);
+                });
             }
+            return Result.ok(list);
+
         } else {
             // e so fazer um getMessage ao servidor correto
-            Discovery discovery = Discovery.getInstance();
-            String serviceDomain = RestFeedsServer.SERVICE + "." + userDomain;
-            System.out.println("serviceDomain " + serviceDomain);
-            URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-            URI serverUri = uris[0];
-            // Obtenho o servidor
-            Feeds feedsServer = new RestFeedsClient(serverUri);
-
-            System.out.println("servidor encontrado: " + feedsServer);
-
-            var result = feedsServer.getMessages(user, time);
-            if (result.isOK()) return Result.ok(result.value());
-            else return Result.error(result.error());
+            Feeds feedsServer = getFeedsServer(userDomain);
+            return feedsServer.getMessages(user, time);
         }
-
-
     }
 
     @Override
@@ -549,8 +474,8 @@ public class JavaFeeds implements Feeds {
             }
 
             // Removo as msg da tabela com todas as msgs
-            userFeed.forEach((id, msg) -> {
-                allMessages.remove(id);
+            userFeed.forEach((id, value) -> {
+                allMessages.put(id, false);
             });
 
             feeds.remove(user);
