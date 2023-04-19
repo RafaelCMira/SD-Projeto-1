@@ -356,35 +356,21 @@ public class JavaFeeds implements Feeds {
         // Se estao no mesmo dominio
         if (areSameDomain(user, userSub)) {
             // Removo userSub das subcricoes de user
-            List<String> userSubscriptions = mySubscriptionsInCurrentDomain.get(user);
-            if (userSubscriptions == null) {
-                userSubscriptions = new LinkedList<>();
-                mySubscriptionsInCurrentDomain.put(user, userSubscriptions);
-            }
+            List<String> userSubscriptions = mySubscriptionsInCurrentDomain.computeIfAbsent(user, k -> new LinkedList<>());
             while (userSubscriptions.remove(userSub)) ;
 
             // Removo user dos followers de userSub
-            List<String> userSubFollowers = myFollowersInCurrentDomain.get(userSub);
-            if (userSubFollowers == null) {
-                userSubFollowers = new LinkedList<>();
-                myFollowersInCurrentDomain.put(userSub, userSubFollowers);
-            }
+            List<String> userSubFollowers = myFollowersInCurrentDomain.computeIfAbsent(userSub, k -> new LinkedList<>());
             while (userSubFollowers.remove(user)) ;
+
         } else {
             // Removo userSub as subs de user de dominios diferentes
-            Map<String, List<String>> subscriptionsByDomain = mySubscriptionsByDomain.get(user);
-            if (subscriptionsByDomain == null) {
-                subscriptionsByDomain = new HashMap<>();
-                mySubscriptionsByDomain.put(user, subscriptionsByDomain);
-            }
-            var parts = userSub.split(DELIMITER);
-            String userSubDomain = parts[1];
+            // Podemos otimizar isto, se for null quer dizer que nao temos subs neste dominio e podemos passar isto
+            Map<String, List<String>> subscriptionsByDomain = mySubscriptionsByDomain.computeIfAbsent(user, k -> new HashMap<>());
 
-            List<String> subsInDomain = subscriptionsByDomain.get(userSubDomain);
-            if (subsInDomain == null) {
-                subsInDomain = new LinkedList<>();
-                subscriptionsByDomain.put(userSubDomain, subsInDomain);
-            }
+            String userSubDomain = getUserDomain(userSub);
+
+            List<String> subsInDomain = subscriptionsByDomain.computeIfAbsent(userSubDomain, k -> new LinkedList<>());
 
             subsInDomain.remove(userSub);
 
@@ -470,11 +456,7 @@ public class JavaFeeds implements Feeds {
 
         // Para todos os users de usersList, colocar no feed de cada um
         for (String u : usersList) {
-            Map<Long, Message> userFeed = feeds.get(u);
-            if (userFeed == null) {
-                userFeed = new HashMap<>();
-                feeds.put(u, userFeed);
-            }
+            Map<Long, Message> userFeed = feeds.computeIfAbsent(u, k -> new HashMap<>());
             userFeed.put(msg.getId(), msg);
         }
         return Result.ok();
