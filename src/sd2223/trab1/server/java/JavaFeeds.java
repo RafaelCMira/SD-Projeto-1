@@ -395,17 +395,18 @@ public class JavaFeeds implements Feeds {
         // Lista resultado
         List<String> list = new LinkedList<>();
 
-        // Adicionamos todas as subscricores que o user tem no mesmo dominio
-        List<String> res = mySubscriptionsInCurrentDomain.get(user);
-        if (res != null) list.addAll(res);
+        synchronized (this) {
+            // Adicionamos todas as subscricores que o user tem no mesmo dominio
+            List<String> res = mySubscriptionsInCurrentDomain.get(user);
+            if (res != null) list.addAll(res);
 
-        // Adicionamos todas as subscricores que o user tem em dominios diferentes
-        if (mySubscriptionsByDomain.get(user) != null)
-            mySubscriptionsByDomain.get(user).forEach((domain, domainSubs) -> {
-                if (domainSubs != null)
-                    list.addAll(domainSubs);
-            });
-
+            // Adicionamos todas as subscricores que o user tem em dominios diferentes
+            if (mySubscriptionsByDomain.get(user) != null)
+                mySubscriptionsByDomain.get(user).forEach((domain, domainSubs) -> {
+                    if (domainSubs != null)
+                        list.addAll(domainSubs);
+                });
+        }
         return Result.ok(list);
     }
 
@@ -421,37 +422,31 @@ public class JavaFeeds implements Feeds {
             });
 
             feeds.remove(user);
+
+
+            List<String> subscriptions = mySubscriptionsInCurrentDomain.get(user);
+            if (subscriptions != null)
+                for (String s : subscriptions) { // aviso meus followers que os deixei de seguir
+                    List<String> followers = myFollowersInCurrentDomain.get(s);
+                    while (followers.remove(user)) ;
+                }
+            mySubscriptionsInCurrentDomain.remove(user); // Remover todas as subs do mesmo dominio
+
+            // Remover todas as subs de dominios diferentes
+            // TODO se necessario
+
+            // Removo todos os followers do user
+            List<String> uFollowers = myFollowersInCurrentDomain.get(user);
+            if (uFollowers != null)
+                for (String f : uFollowers) { // Tenho de avisar todos os followers que eles deixaram de me seguir
+                    List<String> subs = mySubscriptionsInCurrentDomain.get(f);
+                    while (subs.remove(user)) ;
+                }
+            myFollowersInCurrentDomain.remove(user); // Remover todos os followers do mesmo dominio
+
+            // Remover todos os followers de dominios diferentes
+            // TODO se necessario
         }
-
-
-        // Removo todas as subscricoes de user | tenho de avisar todos os followers que os deixei de seguir
-
-        // Remover todas as subs do mesmo dominio | aviso meus followers que os deixei de seguir
-        List<String> subscriptions = mySubscriptionsInCurrentDomain.get(user);
-        if (subscriptions != null)
-            for (String s : subscriptions) {
-                List<String> followers = myFollowersInCurrentDomain.get(s);
-                while (followers.remove(user)) ;
-            }
-        mySubscriptionsInCurrentDomain.remove(user);
-
-        // Remover todas as subs de dominios diferentes
-        // TODO se necessario
-
-
-        // Removo todos os followers do user | Tenho de avisar todos os followers que eles deixaram de me seguir
-
-        // Remover todos os followers do mesmo dominio
-        List<String> uFollowers = myFollowersInCurrentDomain.get(user);
-        if (uFollowers != null)
-            for (String f : uFollowers) {
-                List<String> subs = mySubscriptionsInCurrentDomain.get(f);
-                while (subs.remove(user)) ;
-            }
-        myFollowersInCurrentDomain.remove(user);
-
-        // Remover todos os followers de dominios diferentes
-        // TODO se necessario
 
         return Result.ok();
     }
@@ -472,26 +467,30 @@ public class JavaFeeds implements Feeds {
     @Override
     public Result<Void> propagateSub(String user, String userSub) {
         // Adicionar user aos followers de userSub
-        Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, k -> new HashMap<>());
 
-        String userDomain = getUserDomain(user);
+        synchronized (this) {
+            Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, k -> new HashMap<>());
 
-        List<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, k -> new LinkedList<>());
-        usersInDomain.add(user);
+            String userDomain = getUserDomain(user);
 
+            List<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, k -> new LinkedList<>());
+            usersInDomain.add(user);
+        }
         return Result.ok();
     }
 
     @Override
     public Result<Void> propagateUnsub(String user, String userSub) {
         // Remover user dos followers de userSub
-        Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, k -> new HashMap<>());
+        synchronized (this) {
+            Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, k -> new HashMap<>());
 
-        String userDomain = getUserDomain(user);
+            String userDomain = getUserDomain(user);
 
-        List<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, k -> new LinkedList<>());
-        usersInDomain.remove(user);
-
+            List<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, k -> new LinkedList<>());
+            usersInDomain.remove(user);
+        }
+        
         return Result.ok();
     }
 

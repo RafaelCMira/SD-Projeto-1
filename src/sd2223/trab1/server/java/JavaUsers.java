@@ -130,18 +130,13 @@ public class JavaUsers implements Users {
 
     @Override
     public Result<List<User>> searchUsers(String pattern) {
-        // Log.info("searchUsers : pattern = " + pattern);
-
         List<User> result = new LinkedList<>();
 
         if (pattern == null) {
-            // return all users, mesmo que nao haja nenhum
-            //     Log.info("Returning all users");
             synchronized (this) {
                 result.addAll(users.values());
             }
         } else {
-            //    Log.info("Returning all users with " + pattern + " as substring");
             synchronized (this) {
                 users.forEach((id, user) -> {
                     // return all users com o pattern
