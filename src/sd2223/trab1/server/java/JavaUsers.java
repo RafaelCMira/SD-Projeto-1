@@ -26,7 +26,11 @@ public class JavaUsers implements Users {
         if (name == null || pwd == null)
             return Result.error(ErrorCode.BAD_REQUEST); // 400
 
-        var user = users.get(name);
+        User user;
+
+        synchronized (this) {
+            user = users.get(name);
+        }
 
         // Check if user exists
         if (user == null)
@@ -104,28 +108,24 @@ public class JavaUsers implements Users {
             result = auxGetUser(name, pwd);
         }
 
-        if (result.isOK()) {
+        if (!result.isOK())
+            return Result.error(result.error()); // erro
+        else {
             User user = result.value();
             users.remove(name);
             String userName = user.getName() + DELIMITER + user.getDomain();
 
-            // Descubro onde esta o servidor
             Discovery discovery = Discovery.getInstance();
             String serviceDomain = RestFeedsServer.SERVICE + "." + user.getDomain();
-            // Obtenho o URI
             URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
             URI serverUri = uris[0];
-            // Obtenho o servidor
             Feeds feedsServer = new RestFeedsClient(serverUri);
 
             var res = feedsServer.deleteUserFeed(userName);
+            if (!res.isOK()) return Result.error(res.error());
 
-            if (res.isOK())
-                return Result.ok(user); // 200n
-            else
-                return Result.error(res.error());
-        } else
-            return Result.error(result.error()); // erro
+            return Result.ok(user); // 200n
+        }
     }
 
     @Override
@@ -160,30 +160,26 @@ public class JavaUsers implements Users {
         Result<User> result;
         synchronized (this) {
             result = auxGetUser(name, pwd);
-            //result = getUser(name, pwd);
         }
 
-        if (result.isOK())
-            return Result.ok();
-        else
-            return Result.error(result.error());
+        if (!result.isOK()) return Result.error(result.error());
+
+        return Result.ok();
     }
 
     @Override
     public Result<Void> checkUser(String name) {
         // Check if user is valid
-        if (name == null) {
-            // Log.info("UserId or password null.");
-            return Result.error(ErrorCode.BAD_REQUEST); // 400
-        }
+        if (name == null) return Result.error(ErrorCode.BAD_REQUEST); // 400
 
-        var user = users.get(name);
+        User user;
+
+        synchronized (this) {
+            user = users.get(name);
+        }
 
         // Check if user exists
-        if (user == null) {
-            //   Log.info("User does not exist.");
-            return Result.error(ErrorCode.NOT_FOUND); // 404
-        }
+        if (user == null) return Result.error(ErrorCode.NOT_FOUND); // 404
 
         return Result.ok();
     }
