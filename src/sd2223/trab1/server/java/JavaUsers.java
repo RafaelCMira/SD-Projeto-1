@@ -23,24 +23,18 @@ public class JavaUsers implements Users {
 
     private Result<User> auxGetUser(String name, String pwd) {
         // Check if user is valid
-        if (name == null || pwd == null) {
-            // Log.info("UserId or password null.");
+        if (name == null || pwd == null)
             return Result.error(ErrorCode.BAD_REQUEST); // 400
-        }
 
         var user = users.get(name);
 
         // Check if user exists
-        if (user == null) {
-            //   Log.info("User does not exist.");
+        if (user == null)
             return Result.error(ErrorCode.NOT_FOUND); // 404
-        }
 
         //Check if the password is correct
-        if (!user.getPwd().equals(pwd)) {
-            //  Log.info("Password is incorrect.");
+        if (!user.getPwd().equals(pwd))
             return Result.error(ErrorCode.FORBIDDEN); // 403
-        }
 
         return Result.ok(user);
     }
@@ -48,21 +42,17 @@ public class JavaUsers implements Users {
     @Override
     public Result<String> createUser(User user) {
         // Check if user data is valid
-        if (user.getName() == null || user.getPwd() == null || user.getDisplayName() == null || user.getDomain() == null) {
-            //   Log.info("User object invalid.");
+        if (user.getName() == null || user.getPwd() == null || user.getDisplayName() == null || user.getDomain() == null)
             return Result.error(ErrorCode.BAD_REQUEST); // 400
-        }
 
         synchronized (this) {
             // Insert new user, checking if userId already exists
             if (users.putIfAbsent(user.getName(), user) != null) {
-                //     Log.info("User already exists.");
                 return Result.error(ErrorCode.CONFLICT); // 409
             }
         }
 
         String name = user.getName() + DELIMITER + user.getDomain();
-        // Log.info("createUser : " + user);
         return Result.ok(name);
     }
 
@@ -74,10 +64,9 @@ public class JavaUsers implements Users {
             result = auxGetUser(name, pwd);
         }
 
-        if (result.isOK())
-            return Result.ok(result.value()); // 200
-        else
-            return Result.error(result.error()); // erro
+        if (!result.isOK()) return Result.error(result.error()); // erro
+
+        return Result.ok(result.value()); // 200
     }
 
     @Override
@@ -87,11 +76,11 @@ public class JavaUsers implements Users {
             // Ja trata dos erros: 400, 403, 404
             result = auxGetUser(name, pwd);
 
-            if (result.isOK()) {
+            if (!result.isOK()) return Result.error(result.error()); // erro
+            else {
                 if (!name.equals(user.getName())) {
                     return Result.error(ErrorCode.BAD_REQUEST); // 400
                 }
-
                 User oldUser = result.value();
 
                 String newDisplayName = user.getDisplayName();
@@ -103,8 +92,7 @@ public class JavaUsers implements Users {
                     oldUser.setPwd(newPassword);
 
                 return Result.ok(oldUser); // 200
-            } else
-                return Result.error(result.error()); // erro
+            }
         }
     }
 
