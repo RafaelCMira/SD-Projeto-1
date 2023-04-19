@@ -2,13 +2,16 @@ package sd2223.trab1.client;
 
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.GenericType;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import sd2223.trab1.api.Message;
 import sd2223.trab1.api.PropMsgHelper;
+import sd2223.trab1.api.User;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.rest.FeedsService;
+import sd2223.trab1.api.rest.UsersService;
 
 import java.net.URI;
 import java.util.List;
@@ -34,12 +37,12 @@ public class RestFeedsClient extends RestClient implements Feeds {
 
     @Override
     public Result<Message> getMessage(String user, long mid) {
-        return null;
+        return super.reTry(() -> clt_getMessage(user, mid));
     }
 
     @Override
     public Result<List<Message>> getMessages(String user, long time) {
-        return null;
+        return super.reTry(() -> clt_getMessages(user, time));
     }
 
     @Override
@@ -68,9 +71,37 @@ public class RestFeedsClient extends RestClient implements Feeds {
     }
 
     @Override
+    public Result<Void> propagateUnsub(String user, String userSub) {
+        return super.reTry(() -> clt_propagateUnsub(user, userSub));
+    }
+
+
+    @Override
     public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
         return super.reTry(() -> clt_propagateMsg(msgAndList));
     }
+
+    private Result<Message> clt_getMessage(String user, long mid) {
+        Response r = target
+                .path(user)
+                .path(String.valueOf(mid))
+                .request()
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
+        return super.toJavaResult(r, Message.class);
+    }
+
+    private Result<List<Message>> clt_getMessages(String user, long time) {
+        Response r = target
+                .path(user)
+                .queryParam(FeedsService.TIME, time)
+                .request()
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
+        return super.toJavaResult(r, new GenericType<List<Message>>() {
+        });
+    }
+
 
     private Result<Void> clt_propagateSub(String user, String userSub) {
         Response r = target
@@ -79,6 +110,16 @@ public class RestFeedsClient extends RestClient implements Feeds {
                 .path(userSub)
                 .request()
                 .post(Entity.entity(user, MediaType.APPLICATION_JSON));
+        return super.toJavaResult(r, Void.class);
+    }
+
+    private Result<Void> clt_propagateUnsub(String user, String userSub) {
+        Response r = target
+                .path(user)
+                .path("suber")
+                .path(userSub)
+                .request()
+                .delete();
         return super.toJavaResult(r, Void.class);
     }
 

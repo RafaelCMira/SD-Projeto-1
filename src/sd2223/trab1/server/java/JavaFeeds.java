@@ -99,17 +99,14 @@ public class JavaFeeds implements Feeds {
     }
 
     private Result<Void> auxPropMsg(String serverDomain, PropMsgHelper obj) {
-        System.out.println("Entrei no auxPropMsg do javaFeeds");
         // Descubro onde esta o servidor
         Discovery discovery = Discovery.getInstance();
         String serviceDomain = RestFeedsServer.SERVICE + "." + serverDomain;
         // Obtenho o URI
-        System.out.println("serviceDomain: " + serviceDomain);
         URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
         URI serverUri = uris[0];
         // Obtenho o servidor
         Feeds feedsServer = new RestFeedsClient(serverUri);
-        System.out.println("Servidor:" + feedsServer);
 
         // Nunca entra neste método
         var result = feedsServer.propagateMsg(obj);
@@ -132,6 +129,22 @@ public class JavaFeeds implements Feeds {
         // Faço um pedido para verificar a password. (Tb verifica se o user existe, entre outras coisas)
         var result = feedsServer.propagateSub(user, userSub);
 
+        return result;
+    }
+
+    private Result<Void> auxPropUnsub(String user, String userSub) {
+        var parts = userSub.split(DELIMITER);
+        String userSubDomain = parts[1];
+        // Descubro onde esta o servidor
+        Discovery discovery = Discovery.getInstance();
+        String serviceDomain = RestFeedsServer.SERVICE + "." + userSubDomain;
+        // Obtenho o URI
+        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
+        URI serverUri = uris[0];
+        // Obtenho o servidor
+        Feeds feedsServer = new RestFeedsClient(serverUri);
+
+        var result = feedsServer.propagateUnsub(user, userSub);
         return result;
     }
 
@@ -176,10 +189,7 @@ public class JavaFeeds implements Feeds {
 
         for (Map.Entry<String, List<String>> entry : followersByDomain.entrySet()) {
             PropMsgHelper msgAndList = new PropMsgHelper(msg, entry.getValue());
-            System.out.println("ENTREI NO METODO POST IN FOLLOWERS");
-            System.out.println("Domain:" + entry.getKey());
             var result = auxPropMsg(entry.getKey(), msgAndList);
-            System.out.println("Ja processou o pedido");
             if (result.isOK()) return Result.ok();
             if (!result.isOK()) return Result.error(result.error());
         }
@@ -276,44 +286,84 @@ public class JavaFeeds implements Feeds {
     @Override
     public Result<Message> getMessage(String user, long mid) {
         synchronized (this) {
-            Map<Long, Message> userFeed = feeds.get(user);
-            // Se o user nao existe
-            if (userFeed == null) {
-                return Result.error(Result.ErrorCode.NOT_FOUND); // 404
-            }
+            var parts = user.split(DELIMITER);
+            String userDomain = parts[1];
+            System.out.println("serverFeedsDomain: " + feedsDomain);
+            System.out.println("UserDomain: " + userDomain);
 
-            Message msg = userFeed.get(mid);
-            // Se a msg nao exite
-            if (msg == null) {
-                return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+            if (userDomain.equals(feedsDomain)) {
+                Map<Long, Message> userFeed = feeds.get(user);
+                // Se o user nao existe
+                if (userFeed == null) {
+                    return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+                }
+                Message msg = userFeed.get(mid);
+                // Se a msg nao exite
+                if (msg == null) {
+                    return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+                } else return Result.ok(msg);
+            } else {
+                // e so fazer um getMessage ao servidor correto
+                Discovery discovery = Discovery.getInstance();
+                String serviceDomain = RestFeedsServer.SERVICE + "." + userDomain;
+                System.out.println("serviceDomain " + serviceDomain);
+                URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
+                URI serverUri = uris[0];
+                // Obtenho o servidor
+                Feeds feedsServer = new RestFeedsClient(serverUri);
+
+                System.out.println("servidor encontrado: " + feedsServer);
+
+                var result = feedsServer.getMessage(user, mid);
+                if (result.isOK()) return Result.ok(result.value());
+                else return Result.error(Result.ErrorCode.NOT_FOUND);
             }
-            return Result.ok(msg);
         }
     }
 
     @Override
     public Result<List<Message>> getMessages(String user, long time) {
-        var result = auxCheckUser(user);
-        List<Message> list = new LinkedList<>();
+        var parts = user.split(DELIMITER);
+        String userDomain = parts[1];
+        if (userDomain.equals(feedsDomain)) {
+            var result = auxCheckUser(user);
+            List<Message> list = new LinkedList<>();
 
-        if (result.isOK()) {
-            synchronized (this) {
-                Map<Long, Message> userFeed = feeds.get(user);
-                if (userFeed == null) {
-                    userFeed = new HashMap<>();
-                    feeds.put(user, userFeed);
+            if (result.isOK()) {
+                synchronized (this) {
+                    Map<Long, Message> userFeed = feeds.get(user);
+                    if (userFeed == null) {
+                        userFeed = new HashMap<>();
+                        feeds.put(user, userFeed);
+                    }
+
+                    userFeed.forEach((id, msg) -> {
+                        if (msg.getCreationTime() > time)
+                            list.add(msg);
+                    });
                 }
-
-                userFeed.forEach((id, msg) -> {
-                    if (msg.getCreationTime() > time)
-                        list.add(msg);
-                });
+                return Result.ok(list);
+            } else {
+                return Result.error(result.error());
             }
         } else {
-            return Result.error(result.error());
+            // e so fazer um getMessage ao servidor correto
+            Discovery discovery = Discovery.getInstance();
+            String serviceDomain = RestFeedsServer.SERVICE + "." + userDomain;
+            System.out.println("serviceDomain " + serviceDomain);
+            URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
+            URI serverUri = uris[0];
+            // Obtenho o servidor
+            Feeds feedsServer = new RestFeedsClient(serverUri);
+
+            System.out.println("servidor encontrado: " + feedsServer);
+
+            var result = feedsServer.getMessages(user, time);
+            if (result.isOK()) return Result.ok(result.value());
+            else return Result.error(result.error());
         }
 
-        return Result.ok(list);
+
     }
 
     @Override
@@ -413,6 +463,26 @@ public class JavaFeeds implements Feeds {
             }
             while (userSubFollowers.remove(user)) ;
         } else {
+            // Removo userSub as subs de user de dominios diferentes
+            Map<String, List<String>> subscriptionsByDomain = mySubscriptionsByDomain.get(user);
+            if (subscriptionsByDomain == null) {
+                subscriptionsByDomain = new HashMap<>();
+                mySubscriptionsByDomain.put(user, subscriptionsByDomain);
+            }
+            var parts = userSub.split(DELIMITER);
+            String userSubDomain = parts[1];
+
+            List<String> subsInDomain = subscriptionsByDomain.get(userSubDomain);
+            if (subsInDomain == null) {
+                subsInDomain = new LinkedList<>();
+                subscriptionsByDomain.put(userSubDomain, subsInDomain);
+            }
+
+            subsInDomain.remove(userSub);
+
+            var res = auxPropUnsub(user, userSub);
+            if (!res.isOK()) return Result.error(res.error());
+
             // Estao em dominios diferentes
             // Faco o pedido
             // TODO
@@ -526,9 +596,6 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
-        if (msgAndList == null || msgAndList != null) return Result.error(Result.ErrorCode.CONFLICT);
-        System.out.println("ENTREI NO METODO propagateMsg"); // Nunca faz este print nem devolve o erro CONFLIT
-
         Message msg = msgAndList.getMsg();
         List<String> usersList = msgAndList.getSubs();
 
@@ -562,6 +629,28 @@ public class JavaFeeds implements Feeds {
         }
 
         usersInDomain.add(user);
+
+        return Result.ok();
+    }
+
+    @Override
+    public Result<Void> propagateUnsub(String user, String userSub) {
+        // Remover user dos followers de userSub
+        Map<String, List<String>> followersByDomain = myFollowersByDomain.get(userSub);
+        if (followersByDomain == null) {
+            followersByDomain = new HashMap<>();
+            myFollowersByDomain.put(userSub, followersByDomain);
+        }
+        var parts = user.split(DELIMITER);
+        String userDomain = parts[1];
+
+        List<String> usersInDomain = followersByDomain.get(userDomain);
+        if (usersInDomain == null) {
+            usersInDomain = new LinkedList<>();
+            followersByDomain.put(userDomain, usersInDomain);
+        }
+
+        usersInDomain.remove(user);
 
         return Result.ok();
     }

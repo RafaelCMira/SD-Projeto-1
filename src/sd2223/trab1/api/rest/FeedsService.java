@@ -163,4 +163,16 @@ public interface FeedsService {
     void propagateMsg(PropMsgHelper msgAndList);
 
 
+    /**
+     * Propaga um unfollow de um user para um userSub de outro server
+     * // Retirar user aos followers de userSub
+     *
+     * @param user    user que propaga    (format user@domain)
+     * @param userSub user being accessed (format user@domain)
+     * @return 204 if ok
+     */
+    @DELETE
+    @Path("/{" + USER + "}/suber/" + "{" + USERSUB + "}")
+    void propagateUnsub(@PathParam(USER) String user, @PathParam(USERSUB) String userSub);
+
 }
