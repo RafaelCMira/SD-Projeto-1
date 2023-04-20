@@ -104,7 +104,7 @@ public interface UsersService {
     /**
      * Verifica a password do user entre outras coisa. Verifica tambem se o user existe claro.
      *
-     * @param name nome to user
+     * @param name nome do user
      * @param pwd  password do user
      */
     @GET

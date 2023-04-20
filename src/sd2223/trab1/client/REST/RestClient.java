@@ -1,4 +1,4 @@
-package sd2223.trab1.client;
+package sd2223.trab1.client.REST;
 
 import static sd2223.trab1.api.java.Result.error;
 import static sd2223.trab1.api.java.Result.ok;

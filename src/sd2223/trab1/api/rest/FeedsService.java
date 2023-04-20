@@ -133,6 +133,7 @@ public interface FeedsService {
      *
      * @param user user being accessed (format user@domain)
      * @return 204 if ok
+     * 404 is generated if the user does not exist
      */
     @DELETE
     @Path("/{" + USER + "}")
@@ -141,7 +142,6 @@ public interface FeedsService {
 
     /**
      * Propaga uma subscricao de um user para um userSub de outro server
-     * // Acrecentar user aos followers de userSub
      *
      * @param user    user que propaga    (format user@domain)
      * @param userSub user being accessed (format user@domain)
@@ -150,17 +150,6 @@ public interface FeedsService {
     @POST
     @Path("/{" + USER + "}/suber/" + "{" + USERSUB + "}")
     void propagateSub(@PathParam(USER) String user, @PathParam(USERSUB) String userSub);
-
-    /**
-     * Propaga uma mensagem de um user que esta noutro dominio para todos os seguidores de um outro dominio.
-     *
-     * @param msgAndList objeto que contém a mensagem a ser colocada no subscritores do user que postou a msg e, a lista de subscritores do user no dominio para onde e feito o pedido.
-     * @return 204 if ok
-     */
-    @POST
-    @Path("/propagate")
-    @Consumes(MediaType.APPLICATION_JSON)
-    void propagateMsg(PropMsgHelper msgAndList);
 
 
     /**
@@ -174,5 +163,16 @@ public interface FeedsService {
     @DELETE
     @Path("/{" + USER + "}/suber/" + "{" + USERSUB + "}")
     void propagateUnsub(@PathParam(USER) String user, @PathParam(USERSUB) String userSub);
+
+    /**
+     * Propaga uma mensagem de um user que esta num dominio para todos os seguidores de um outro dominio.
+     *
+     * @param msgAndList objeto que contém a mensagem a ser colocada no subscritores do user que postou a msg e, a lista de subscritores do user no dominio para onde e feito o pedido.
+     * @return 204 if ok
+     */
+    @POST
+    @Path("/propagate")
+    @Consumes(MediaType.APPLICATION_JSON)
+    void propagateMsg(PropMsgHelper msgAndList);
 
 }

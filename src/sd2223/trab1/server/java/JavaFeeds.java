@@ -7,8 +7,9 @@ import sd2223.trab1.api.PropMsgHelper;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Users;
-import sd2223.trab1.client.RestFeedsClient;
-import sd2223.trab1.client.RestUsersClient;
+import sd2223.trab1.client.FeedsClientFactory;
+import sd2223.trab1.client.REST.RestFeedsClient;
+import sd2223.trab1.client.UsersClientFactory;
 import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 import sd2223.trab1.server.REST.Users.RestUsersServer;
 
@@ -55,6 +56,7 @@ public class JavaFeeds implements Feeds {
         this.feedsID = feedsID;
     }
 
+
     /**
      * Devolve um servidor de feeds do dominio do user.
      *
@@ -69,7 +71,7 @@ public class JavaFeeds implements Feeds {
         URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
         URI serverUri = uris[0];
         // Devolvo o servidor
-        return new RestFeedsClient(serverUri);
+        return FeedsClientFactory.get(serverUri);
     }
 
     /**
@@ -86,7 +88,7 @@ public class JavaFeeds implements Feeds {
         URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
         URI serverUri = uris[0];
         // Devolvo o servidor
-        return new RestUsersClient(serverUri);
+        return UsersClientFactory.get(serverUri);
     }
 
     private String getUserDomain(String user) {
@@ -125,7 +127,6 @@ public class JavaFeeds implements Feeds {
         String userName = parts[0];
         String userDomain = parts[1];
         Users usersServer = getUsersServer(userDomain);
-        // Faço um pedido para verificar a password. (Tb verifica se o user existe, entre outras coisas)
         return usersServer.verifyPassword(userName, pwd);
     }
 
@@ -490,7 +491,7 @@ public class JavaFeeds implements Feeds {
             List<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, k -> new LinkedList<>());
             usersInDomain.remove(user);
         }
-        
+
         return Result.ok();
     }
 

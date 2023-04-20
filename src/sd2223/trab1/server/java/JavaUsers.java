@@ -6,7 +6,7 @@ import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Result.ErrorCode;
 import sd2223.trab1.api.java.Users;
-import sd2223.trab1.client.RestFeedsClient;
+import sd2223.trab1.client.REST.RestFeedsClient;
 import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 
 import java.net.URI;

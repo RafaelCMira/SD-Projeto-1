@@ -1,4 +1,4 @@
-package sd2223.trab1.client;
+package sd2223.trab1.client.REST;
 
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.WebTarget;
