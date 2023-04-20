@@ -52,27 +52,6 @@ public class JavaFeeds implements Feeds {
         this.feedsID = feedsID;
     }
 
-
-    /**
-     * Devolve um servidor de feeds do dominio do user.
-     *
-     * @param domain dominio do servidor
-     * @return servidor de feeds
-     */
-    private Feeds getFeedsServer(String domain) {
-        return FeedsClientFactory.get(domain);
-    }
-
-    /**
-     * Devolve um servidor de users daquele dominio.
-     *
-     * @param domain dominio do servidor.
-     * @return servidor de users
-     */
-    private Users getUsersServer(String domain) {
-        return UsersClientFactory.get(domain);
-    }
-
     private String getUserDomain(String user) {
         var parts = user.split(DELIMITER);
         String userDomain = parts[1];
@@ -108,7 +87,7 @@ public class JavaFeeds implements Feeds {
         var parts = user.split(DELIMITER);
         String userName = parts[0];
         String userDomain = parts[1];
-        Users usersServer = getUsersServer(userDomain);
+        Users usersServer = UsersClientFactory.get(userDomain);
         return usersServer.verifyPassword(userName, pwd);
     }
 
@@ -116,24 +95,24 @@ public class JavaFeeds implements Feeds {
         var parts = user.split(DELIMITER);
         String userName = parts[0];
         String userDomain = parts[1];
-        Users usersServer = getUsersServer(userDomain);
+        Users usersServer = UsersClientFactory.get(userDomain);
         return usersServer.checkUser(userName);
     }
 
     private Result<Void> auxPropMsg(String serverDomain, PropMsgHelper obj) {
-        Feeds feedsServer = getFeedsServer(serverDomain);
+        Feeds feedsServer = FeedsClientFactory.get(serverDomain);
         return feedsServer.propagateMsg(obj);
     }
 
     private Result<Void> auxPropSub(String user, String userSub) {
         String userSubDomain = getUserDomain(userSub);
-        Feeds feedsServer = getFeedsServer(userSubDomain);
+        Feeds feedsServer = FeedsClientFactory.get(userSubDomain);
         return feedsServer.propagateSub(user, userSub);
     }
 
     private Result<Void> auxPropUnsub(String user, String userSub) {
         String userSubDomain = getUserDomain(userSub);
-        Feeds feedsServer = getFeedsServer(userSubDomain);
+        Feeds feedsServer = FeedsClientFactory.get(userSubDomain);
         return feedsServer.propagateUnsub(user, userSub);
     }
 
@@ -250,7 +229,7 @@ public class JavaFeeds implements Feeds {
             return Result.ok(msg);
         } else {
             // e so fazer um getMessage ao servidor correto
-            Feeds feedsServer = getFeedsServer(userDomain);
+            Feeds feedsServer = FeedsClientFactory.get(userDomain);
             return feedsServer.getMessage(user, mid);
         }
     }
@@ -274,7 +253,7 @@ public class JavaFeeds implements Feeds {
 
         } else {
             // e so fazer um getMessage ao servidor correto
-            Feeds feedsServer = getFeedsServer(userDomain);
+            Feeds feedsServer = FeedsClientFactory.get(userDomain);
             return feedsServer.getMessages(user, time);
         }
     }

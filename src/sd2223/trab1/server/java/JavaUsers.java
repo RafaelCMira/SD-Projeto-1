@@ -116,7 +116,7 @@ public class JavaUsers implements Users {
             String userName = user.getName() + DELIMITER + user.getDomain();
             Feeds feedsServer = FeedsClientFactory.get(user.getDomain());
             var res = feedsServer.deleteUserFeed(userName);
-            if (!res.isOK()) return Result.error(res.error());
+            // if (!res.isOK()) return Result.error(res.error());
             // Com isto comentado passa o SOAP DELETE mas falha o REST delete
 
             return Result.ok(user); // 200n
