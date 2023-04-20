@@ -8,7 +8,6 @@ import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Users;
 import sd2223.trab1.client.FeedsClientFactory;
-import sd2223.trab1.client.REST.RestFeedsClient;
 import sd2223.trab1.client.UsersClientFactory;
 import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 import sd2223.trab1.server.REST.Users.RestUsersServer;
@@ -177,8 +176,15 @@ public class JavaFeeds implements Feeds {
             Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(user, k -> new HashMap<>()); // todos os followers do user agrupados por dominio
 
             for (String domain : followersByDomain.keySet()) {
-                PropMsgHelper msgAndList = new PropMsgHelper(msg, followersByDomain.get(domain));
-                auxPropMsg(domain, msgAndList);
+                new Thread(() -> {
+                    try {
+                        PropMsgHelper msgAndList = new PropMsgHelper(msg, followersByDomain.get(domain));
+                        auxPropMsg(domain, msgAndList);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }).start();
+
             }
         }
 

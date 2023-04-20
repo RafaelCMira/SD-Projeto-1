@@ -6,6 +6,7 @@ import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Result.ErrorCode;
 import sd2223.trab1.api.java.Users;
+import sd2223.trab1.client.FeedsClientFactory;
 import sd2223.trab1.client.REST.RestFeedsClient;
 import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 
@@ -109,17 +110,20 @@ public class JavaUsers implements Users {
         }
 
         if (!result.isOK())
-            return Result.error(result.error()); // erro
+            return Result.error(result.error());
         else {
             User user = result.value();
-            users.remove(name);
+            synchronized (this) {
+                users.remove(name);
+            }
+
             String userName = user.getName() + DELIMITER + user.getDomain();
 
             Discovery discovery = Discovery.getInstance();
             String serviceDomain = RestFeedsServer.SERVICE + "." + user.getDomain();
             URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
             URI serverUri = uris[0];
-            Feeds feedsServer = new RestFeedsClient(serverUri);
+            Feeds feedsServer = FeedsClientFactory.get(serverUri);
 
             var res = feedsServer.deleteUserFeed(userName);
             if (!res.isOK()) return Result.error(res.error());
