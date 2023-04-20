@@ -1,16 +1,12 @@
 package sd2223.trab1.server.java;
 
-import sd2223.trab1.Discovery;
 import sd2223.trab1.api.User;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Result.ErrorCode;
 import sd2223.trab1.api.java.Users;
 import sd2223.trab1.client.FeedsClientFactory;
-import sd2223.trab1.client.REST.RestFeedsClient;
-import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 
-import java.net.URI;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -19,7 +15,6 @@ import java.util.Map;
 public class JavaUsers implements Users {
 
     private final String DELIMITER = "@";
-    private final int MIN_REPLIES = 1;
     private final Map<String, User> users = new HashMap<>();
 
     private Result<User> auxGetUser(String name, String pwd) {
@@ -117,16 +112,12 @@ public class JavaUsers implements Users {
                 users.remove(name);
             }
 
+            // Com isto comentado passa o SOAP DELETE mas falha o REST delete
             String userName = user.getName() + DELIMITER + user.getDomain();
-
-            Discovery discovery = Discovery.getInstance();
-            String serviceDomain = RestFeedsServer.SERVICE + "." + user.getDomain();
-            URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-            URI serverUri = uris[0];
-            Feeds feedsServer = FeedsClientFactory.get(serverUri);
-
+            Feeds feedsServer = FeedsClientFactory.get(user.getDomain());
             var res = feedsServer.deleteUserFeed(userName);
             if (!res.isOK()) return Result.error(res.error());
+            // Com isto comentado passa o SOAP DELETE mas falha o REST delete
 
             return Result.ok(user); // 200n
         }

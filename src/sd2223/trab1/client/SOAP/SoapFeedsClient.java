@@ -7,7 +7,6 @@ import sd2223.trab1.api.PropMsgHelper;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.soap.FeedsService;
-import sd2223.trab1.api.soap.UsersService;
 
 import javax.xml.namespace.QName;
 import java.net.URI;

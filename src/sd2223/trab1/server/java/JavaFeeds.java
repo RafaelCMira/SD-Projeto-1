@@ -1,7 +1,6 @@
 package sd2223.trab1.server.java;
 
 import jakarta.inject.Singleton;
-import sd2223.trab1.Discovery;
 import sd2223.trab1.api.Message;
 import sd2223.trab1.api.PropMsgHelper;
 import sd2223.trab1.api.java.Feeds;
@@ -9,18 +8,16 @@ import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Users;
 import sd2223.trab1.client.FeedsClientFactory;
 import sd2223.trab1.client.UsersClientFactory;
-import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
-import sd2223.trab1.server.REST.Users.RestUsersServer;
 
-import java.net.URI;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Singleton
 public class JavaFeeds implements Feeds {
     private static final String DELIMITER = "@";
     private static String feedsDomain;
     private static int feedsID;
-    private final int MIN_REPLIES = 1;
 
     // Long -> id; Message
     // Todas as msgs do dominio
@@ -63,14 +60,7 @@ public class JavaFeeds implements Feeds {
      * @return servidor de feeds
      */
     private Feeds getFeedsServer(String domain) {
-        // Descubro onde esta o servidor
-        Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestFeedsServer.SERVICE + "." + domain;
-        // Obtenho o URI
-        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-        URI serverUri = uris[0];
-        // Devolvo o servidor
-        return FeedsClientFactory.get(serverUri);
+        return FeedsClientFactory.get(domain);
     }
 
     /**
@@ -80,14 +70,7 @@ public class JavaFeeds implements Feeds {
      * @return servidor de users
      */
     private Users getUsersServer(String domain) {
-        // Descubro onde esta o servidor
-        Discovery discovery = Discovery.getInstance();
-        String serviceDomain = RestUsersServer.SERVICE + "." + domain;
-        // Obtenho o URI
-        URI[] uris = discovery.knownUrisOf(serviceDomain, MIN_REPLIES);
-        URI serverUri = uris[0];
-        // Devolvo o servidor
-        return UsersClientFactory.get(serverUri);
+        return UsersClientFactory.get(domain);
     }
 
     private String getUserDomain(String user) {
@@ -171,22 +154,20 @@ public class JavaFeeds implements Feeds {
                 putMessageInUser(f, msg);
         }
 
+        ExecutorService executor = Executors.newFixedThreadPool(3);
         synchronized (this) {
             // Colocar a msg no feed de todos os followers do user com dominios diferentes.
             Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(user, k -> new HashMap<>()); // todos os followers do user agrupados por dominio
 
             for (String domain : followersByDomain.keySet()) {
-                new Thread(() -> {
-                    try {
-                        PropMsgHelper msgAndList = new PropMsgHelper(msg, followersByDomain.get(domain));
-                        auxPropMsg(domain, msgAndList);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }).start();
-
+                PropMsgHelper msgAndList = new PropMsgHelper(msg, followersByDomain.get(domain));
+                Runnable task = () -> {
+                    auxPropMsg(domain, msgAndList);
+                };
+                executor.execute(task);
             }
         }
+        executor.shutdown();
 
         return Result.ok();
     }
@@ -429,7 +410,6 @@ public class JavaFeeds implements Feeds {
             });
 
             feeds.remove(user);
-
 
             List<String> subscriptions = mySubscriptionsInCurrentDomain.get(user);
             if (subscriptions != null)
