@@ -13,7 +13,6 @@ import org.glassfish.jersey.client.ClientProperties;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Result.ErrorCode;
 
-
 import java.net.URI;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
@@ -25,7 +24,6 @@ public class RestClient {
 
     protected static final int READ_TIMEOUT = 10000;
     protected static final int CONNECT_TIMEOUT = 10000;
-
     protected static final int MAX_RETRIES = 10;
     protected static final int RETRY_SLEEP = 3000;
 

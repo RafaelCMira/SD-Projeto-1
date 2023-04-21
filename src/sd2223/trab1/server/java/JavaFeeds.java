@@ -87,7 +87,7 @@ public class JavaFeeds implements Feeds {
     }
 
     private long generateId2() {
-        long result = idCounter * 256 + feedsID;
+        long result = idCounter * 2 + feedsID;
         idCounter++;
         return result;
     }

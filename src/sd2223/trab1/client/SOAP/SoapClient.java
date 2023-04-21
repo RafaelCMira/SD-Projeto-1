@@ -29,7 +29,6 @@ import jakarta.xml.ws.WebServiceException;
 abstract class SoapClient {
     protected static final int READ_TIMEOUT = 10000;
     protected static final int CONNECT_TIMEOUT = 10000;
-
     protected static final int MAX_RETRIES = 10;
     protected static final int RETRY_SLEEP = 3000;
 

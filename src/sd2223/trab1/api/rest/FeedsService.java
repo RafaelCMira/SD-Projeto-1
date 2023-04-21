@@ -154,7 +154,6 @@ public interface FeedsService {
 
     /**
      * Propaga um unfollow de um user para um userSub de outro server
-     * // Retirar user aos followers de userSub
      *
      * @param user    user que propaga    (format user@domain)
      * @param userSub user being accessed (format user@domain)

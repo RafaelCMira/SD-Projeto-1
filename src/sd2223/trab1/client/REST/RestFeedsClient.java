@@ -73,7 +73,6 @@ public class RestFeedsClient extends RestClient implements Feeds {
         return super.reTry(() -> clt_propagateUnsub(user, userSub));
     }
 
-
     @Override
     public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
         return super.reTry(() -> clt_propagateMsg(msgAndList));
