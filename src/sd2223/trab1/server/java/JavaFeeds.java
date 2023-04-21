@@ -248,9 +248,7 @@ public class JavaFeeds implements Feeds {
                 List<String> subsInDomain = subscriptionsByDomain.computeIfAbsent(userSubDomain, subs -> new LinkedList<>());
                 subsInDomain.add(userSub);
             }
-
             auxPropSub(user, userSub);
-
         }
 
         return Result.ok();
