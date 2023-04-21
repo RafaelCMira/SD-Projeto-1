@@ -1,6 +1,7 @@
 package sd2223.trab1.server.SOAP.Users;
 
 import jakarta.xml.ws.Endpoint;
+import sd2223.trab1.Discovery;
 
 import java.net.InetAddress;
 import java.util.logging.Level;
@@ -14,6 +15,7 @@ public class SoapUsersServer {
     private static Logger Log = Logger.getLogger(SoapUsersServer.class.getName());
 
     public static void main(String[] args) throws Exception {
+        String domain = args[0];
 
         /*
         System.setProperty("com.sun.xml.ws.transport.http.client.HttpTransportPipe.dump", "true");
@@ -27,6 +29,9 @@ public class SoapUsersServer {
         String serverURI = String.format(SERVER_BASE_URI, ip, PORT);
 
         Endpoint.publish(serverURI.replace(ip, "0.0.0.0"), new SoapUsersWebService());
+
+        Discovery discovery = Discovery.getInstance();
+        discovery.announce(domain, SERVICE_NAME, serverURI);
 
         Log.info(String.format("%s Soap Server ready @ %s\n", SERVICE_NAME, serverURI));
     }

@@ -6,6 +6,7 @@ import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Result.ErrorCode;
 import sd2223.trab1.api.java.Users;
 import sd2223.trab1.client.FeedsClientFactory;
+import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 
 import java.util.HashMap;
 import java.util.LinkedList;
