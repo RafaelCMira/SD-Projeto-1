@@ -18,13 +18,7 @@ public class JavaFeeds implements Feeds {
     private static final String DELIMITER = "@";
     private static String feedsDomain;
     private static int feedsID;
-
     private long idCounter;
-
-    // Long -> id; Message
-    // Todas as msgs do dominio
-    // Apenas contem os ids que mapeiam um valor booleano. Se o id estiver a true entao esta em a ser usado, senao podemos ficar com ele para uma proxima msg
-    private final Map<Long, Boolean> allMessages = new HashMap<>();
 
     // String -> userName; Mapa Long -> id; Message
     // Feeds de todos os users do dominio
@@ -59,31 +53,6 @@ public class JavaFeeds implements Feeds {
         var parts = user.split(DELIMITER);
         String userDomain = parts[1];
         return userDomain;
-    }
-
-    /**
-     * Metodo que gera um id para a msg. O primeiro digito do id e o numero do servidor em que foi resgistada.
-     *
-     * @return id unico para uma nova msg no servidor
-     */
-    private long generateId() {
-        long result = feedsID;
-        Random rand = new Random();
-        // Adiciona dígitos aleatórios após o número inicial
-        for (int i = Long.toString(feedsID).length(); i < 19; i++)
-            result = result * 10 + rand.nextInt(10);
-
-        while (true) {
-            synchronized (this) {
-                if (allMessages.get(result) == null || allMessages.get(result) == false) {
-                    allMessages.put(result, true);
-                    return result;
-                } else {
-                    for (int i = Long.toString(feedsID).length(); i < 19; i++)
-                        result = result * 10 + rand.nextInt(10);
-                }
-            }
-        }
     }
 
     private long generateId2() {
@@ -168,8 +137,6 @@ public class JavaFeeds implements Feeds {
         synchronized (this) {
             msg.setId(id);
             msg.setCreationTime(System.currentTimeMillis());
-            // Coloco no allMessages
-            allMessages.put(id, true);
         }
 
         // Colocar a msg no user correto
@@ -199,10 +166,6 @@ public class JavaFeeds implements Feeds {
             // Verifica se o user tem a msg no feed
             if (msg == null) return Result.error(Result.ErrorCode.NOT_FOUND); // 404
             userFeed.remove(mid);
-        }
-
-        synchronized (this) {
-            allMessages.put(mid, false);
         }
 
         return Result.ok();
@@ -360,10 +323,6 @@ public class JavaFeeds implements Feeds {
             Map<Long, Message> userFeed = feeds.get(user);
             if (userFeed == null) return Result.ok(); // nao tem msg no feed
 
-            userFeed.forEach((id, value) -> {
-                allMessages.put(id, false);
-            });
-
             feeds.remove(user);
 
             List<String> subscriptions = mySubscriptionsInCurrentDomain.get(user);
@@ -399,10 +358,11 @@ public class JavaFeeds implements Feeds {
         List<String> usersList = msgAndList.getSubs();
 
         // Para todos os users de usersList, colocar no feed de cada um
-        for (String u : usersList) {
-            Map<Long, Message> userFeed = feeds.computeIfAbsent(u, k -> new HashMap<>());
-            userFeed.put(msg.getId(), msg);
-        }
+        if (usersList != null)
+            for (String u : usersList) {
+                Map<Long, Message> userFeed = feeds.computeIfAbsent(u, messages -> new HashMap<>());
+                userFeed.put(msg.getId(), msg);
+            }
         return Result.ok();
     }
 
