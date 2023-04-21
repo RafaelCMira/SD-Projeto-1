@@ -249,8 +249,8 @@ public class JavaFeeds implements Feeds {
                 subsInDomain.add(userSub);
             }
 
-            var res = auxPropSub(user, userSub);
-            if (!res.isOK()) return Result.error(Result.ErrorCode.CONFLICT);
+            auxPropSub(user, userSub);
+
         }
 
         return Result.ok();
@@ -287,8 +287,7 @@ public class JavaFeeds implements Feeds {
                 subsInDomain.remove(userSub);
             }
 
-            var res = auxPropUnsub(user, userSub);
-            if (!res.isOK()) return Result.error(res.error());
+            auxPropUnsub(user, userSub);
         }
         return Result.ok();
     }
