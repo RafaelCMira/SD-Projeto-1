@@ -19,6 +19,8 @@ public class JavaFeeds implements Feeds {
     private static String feedsDomain;
     private static int feedsID;
 
+    private long idCounter;
+
     // Long -> id; Message
     // Todas as msgs do dominio
     // Apenas contem os ids que mapeiam um valor booleano. Se o id estiver a true entao esta em a ser usado, senao podemos ficar com ele para uma proxima msg
@@ -50,6 +52,7 @@ public class JavaFeeds implements Feeds {
     public JavaFeeds(String feedsDomain, int feedsID) {
         this.feedsDomain = feedsDomain;
         this.feedsID = feedsID;
+        idCounter = Long.MIN_VALUE;
     }
 
     private String getUserDomain(String user) {
@@ -81,6 +84,12 @@ public class JavaFeeds implements Feeds {
                 }
             }
         }
+    }
+
+    private long generateId2() {
+        long result = idCounter * 256 + feedsID;
+        idCounter++;
+        return result;
     }
 
     private Result<Void> auxVerifyPassword(String user, String pwd) {
@@ -117,18 +126,16 @@ public class JavaFeeds implements Feeds {
     }
 
     // Coloca uma msg num user
-    private Result<Void> putMessageInUser(String user, Message msg) {
+    private void putMessageInUser(String user, Message msg) {
         Map<Long, Message> userFeed = feeds.computeIfAbsent(user, k -> new HashMap<>());
         userFeed.put(msg.getId(), msg);
-        return Result.ok();
     }
 
     // Metodo que coloca uma msg em todos os followers do user
-    private Result<Void> postMessageInFollowers(String user, Message msg) {
+    private void postMessageInFollowers(String user, Message msg) {
         synchronized (this) {// mesmo dominio
             // Colocar a msg no feed de todos os followers do user no mesmo dominio
-            List<String> followersInCurrentDomain = myFollowersInCurrentDomain.computeIfAbsent(user, k -> new LinkedList<>());
-
+            List<String> followersInCurrentDomain = myFollowersInCurrentDomain.computeIfAbsent(user, followers -> new LinkedList<>());
             for (String f : followersInCurrentDomain)
                 putMessageInUser(f, msg);
         }
@@ -136,19 +143,14 @@ public class JavaFeeds implements Feeds {
         ExecutorService executor = Executors.newFixedThreadPool(3);
         synchronized (this) {
             // Colocar a msg no feed de todos os followers do user com dominios diferentes.
-            Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(user, k -> new HashMap<>()); // todos os followers do user agrupados por dominio
-
+            Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(user, domain -> new HashMap<>()); // todos os followers do user agrupados por dominio
             for (String domain : followersByDomain.keySet()) {
                 PropMsgHelper msgAndList = new PropMsgHelper(msg, followersByDomain.get(domain));
-                Runnable task = () -> {
-                    auxPropMsg(domain, msgAndList);
-                };
+                Runnable task = () -> auxPropMsg(domain, msgAndList);
                 executor.execute(task);
             }
         }
         executor.shutdown();
-
-        return Result.ok();
     }
 
     @Override
@@ -161,7 +163,8 @@ public class JavaFeeds implements Feeds {
         var result = auxVerifyPassword(user, pwd);
         if (!result.isOK()) return Result.error(result.error());
 
-        long id = generateId();
+        // long id = generateId();
+        long id = generateId2();
         synchronized (this) {
             msg.setId(id);
             msg.setCreationTime(System.currentTimeMillis());
@@ -174,22 +177,27 @@ public class JavaFeeds implements Feeds {
             putMessageInUser(user, msg);
         }
 
+        /*
         // Coloco a msg no feed de todos os users que me seguem
         var res = postMessageInFollowers(user, msg);
-        if (!res.isOK()) return Result.error(res.error());
+        if (!res.isOK()) return Result.error(res.error());*/
+
+        postMessageInFollowers(user, msg); // nao necessito de ter isto em cima pois e para ser feito em background
+        //logo nao tenho de verificar se foi bem feito neste momento
 
         return Result.ok(id);
     }
 
+    @Override
+    public Result<Void> removeFromPersonalFeed(String user, long mid, String pwd) {
+        var result = auxVerifyPassword(user, pwd);
+        if (!result.isOK()) return Result.error(result.error());
 
-    private Result<Void> auxRemoveFromFeed(String user, long mid) {
         synchronized (this) {
-            Map<Long, Message> userFeed = feeds.computeIfAbsent(user, k -> new HashMap<>());
+            Map<Long, Message> userFeed = feeds.computeIfAbsent(user, map -> new HashMap<>());
             Message msg = userFeed.get(mid);
-
             // Verifica se o user tem a msg no feed
             if (msg == null) return Result.error(Result.ErrorCode.NOT_FOUND); // 404
-
             userFeed.remove(mid);
         }
 
@@ -201,15 +209,6 @@ public class JavaFeeds implements Feeds {
     }
 
     @Override
-    public Result<Void> removeFromPersonalFeed(String user, long mid, String pwd) {
-        var result = auxVerifyPassword(user, pwd);
-
-        if (!result.isOK()) return Result.error(result.error());
-
-        return auxRemoveFromFeed(user, mid);
-    }
-
-    @Override
     public Result<Message> getMessage(String user, long mid) {
         String userDomain = getUserDomain(user);
 
@@ -218,8 +217,8 @@ public class JavaFeeds implements Feeds {
             synchronized (this) {
                 Map<Long, Message> userFeed = feeds.get(user);
 
-                if (userFeed == null) // Se o user nao existe
-                    return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+                // Se o user nao existe
+                if (userFeed == null) return Result.error(Result.ErrorCode.NOT_FOUND); // 404
 
                 msg = userFeed.get(mid);
             }
@@ -228,7 +227,6 @@ public class JavaFeeds implements Feeds {
 
             return Result.ok(msg);
         } else {
-            // e so fazer um getMessage ao servidor correto
             Feeds feedsServer = FeedsClientFactory.get(userDomain);
             return feedsServer.getMessage(user, mid);
         }
@@ -243,16 +241,14 @@ public class JavaFeeds implements Feeds {
 
             List<Message> list = new LinkedList<>();
             synchronized (this) {
-                Map<Long, Message> userFeed = feeds.computeIfAbsent(user, k -> new HashMap<>());
+                Map<Long, Message> userFeed = feeds.computeIfAbsent(user, feed -> new HashMap<>());
                 userFeed.forEach((id, msg) -> {
                     if (msg.getCreationTime() > time)
                         list.add(msg);
                 });
             }
             return Result.ok(list);
-
         } else {
-            // e so fazer um getMessage ao servidor correto
             Feeds feedsServer = FeedsClientFactory.get(userDomain);
             return feedsServer.getMessages(user, time);
         }
@@ -272,11 +268,11 @@ public class JavaFeeds implements Feeds {
         if (areSameDomain(user, userSub)) {
             synchronized (this) {
                 // Adiciono userSub as subs de user
-                List<String> userSubscriptions = mySubscriptionsInCurrentDomain.computeIfAbsent(user, k -> new LinkedList<>());
+                List<String> userSubscriptions = mySubscriptionsInCurrentDomain.computeIfAbsent(user, userSubs -> new LinkedList<>());
                 userSubscriptions.add(userSub);
 
                 // Adiciono user aos follows de userSub
-                List<String> userSubFollowers = myFollowersInCurrentDomain.computeIfAbsent(userSub, k -> new LinkedList<>());
+                List<String> userSubFollowers = myFollowersInCurrentDomain.computeIfAbsent(userSub, followers -> new LinkedList<>());
                 userSubFollowers.add(user);
             }
         }
@@ -284,11 +280,9 @@ public class JavaFeeds implements Feeds {
         else {
             synchronized (this) {
                 // Adiciono userSub as subs de user
-                Map<String, List<String>> subscriptionsByDomain = mySubscriptionsByDomain.computeIfAbsent(user, k -> new HashMap<>());
-
+                Map<String, List<String>> subscriptionsByDomain = mySubscriptionsByDomain.computeIfAbsent(user, domain -> new HashMap<>());
                 String userSubDomain = getUserDomain(userSub);
-
-                List<String> subsInDomain = subscriptionsByDomain.computeIfAbsent(userSubDomain, k -> new LinkedList<>());
+                List<String> subsInDomain = subscriptionsByDomain.computeIfAbsent(userSubDomain, subs -> new LinkedList<>());
                 subsInDomain.add(userSub);
             }
 
@@ -297,21 +291,6 @@ public class JavaFeeds implements Feeds {
         }
 
         return Result.ok();
-    }
-
-    /**
-     * Verifica se 2 users estao no mesmo dominio.
-     *
-     * @param user
-     * @param userSub
-     * @return true se estao, false caso contrario
-     */
-    private boolean areSameDomain(String user, String userSub) {
-        var parts = user.split(DELIMITER);
-        String userDomain = parts[1];
-        parts = userSub.split(DELIMITER);
-        String userSubDomain = parts[1];
-        return userDomain.equals(userSubDomain);
     }
 
     @Override
@@ -328,23 +307,20 @@ public class JavaFeeds implements Feeds {
         if (areSameDomain(user, userSub)) {
             synchronized (this) {
                 // Removo userSub das subcricoes de user
-                List<String> userSubscriptions = mySubscriptionsInCurrentDomain.computeIfAbsent(user, k -> new LinkedList<>());
+                List<String> userSubscriptions = mySubscriptionsInCurrentDomain.computeIfAbsent(user, subs -> new LinkedList<>());
                 while (userSubscriptions.remove(userSub)) ;
 
                 // Removo user dos followers de userSub
-                List<String> userSubFollowers = myFollowersInCurrentDomain.computeIfAbsent(userSub, k -> new LinkedList<>());
+                List<String> userSubFollowers = myFollowersInCurrentDomain.computeIfAbsent(userSub, followers -> new LinkedList<>());
                 while (userSubFollowers.remove(user)) ;
             }
         } else {
             synchronized (this) {
                 // Removo userSub as subs de user de dominios diferentes
                 // Podemos otimizar isto, se for null quer dizer que nao temos subs neste dominio e podemos passar isto
-                Map<String, List<String>> subscriptionsByDomain = mySubscriptionsByDomain.computeIfAbsent(user, k -> new HashMap<>());
-
+                Map<String, List<String>> subscriptionsByDomain = mySubscriptionsByDomain.computeIfAbsent(user, domain -> new HashMap<>());
                 String userSubDomain = getUserDomain(userSub);
-
-                List<String> subsInDomain = subscriptionsByDomain.computeIfAbsent(userSubDomain, k -> new LinkedList<>());
-
+                List<String> subsInDomain = subscriptionsByDomain.computeIfAbsent(userSubDomain, subs -> new LinkedList<>());
                 subsInDomain.remove(userSub);
             }
 
@@ -433,13 +409,10 @@ public class JavaFeeds implements Feeds {
     @Override
     public Result<Void> propagateSub(String user, String userSub) {
         // Adicionar user aos followers de userSub
-
         synchronized (this) {
-            Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, k -> new HashMap<>());
-
+            Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, domain -> new HashMap<>());
             String userDomain = getUserDomain(user);
-
-            List<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, k -> new LinkedList<>());
+            List<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, followers -> new LinkedList<>());
             usersInDomain.add(user);
         }
         return Result.ok();
@@ -449,16 +422,27 @@ public class JavaFeeds implements Feeds {
     public Result<Void> propagateUnsub(String user, String userSub) {
         // Remover user dos followers de userSub
         synchronized (this) {
-            Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, k -> new HashMap<>());
-
+            Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, domain -> new HashMap<>());
             String userDomain = getUserDomain(user);
-
-            List<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, k -> new LinkedList<>());
+            List<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, followers -> new LinkedList<>());
             usersInDomain.remove(user);
         }
-
         return Result.ok();
     }
 
+    /**
+     * Verifica se 2 users estao no mesmo dominio.
+     *
+     * @param user
+     * @param userSub
+     * @return true se estao, false caso contrario
+     */
+    private boolean areSameDomain(String user, String userSub) {
+        var parts = user.split(DELIMITER);
+        String userDomain = parts[1];
+        parts = userSub.split(DELIMITER);
+        String userSubDomain = parts[1];
+        return userDomain.equals(userSubDomain);
+    }
 
 }
