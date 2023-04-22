@@ -8,6 +8,7 @@ import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Users;
 import sd2223.trab1.client.FeedsClientFactory;
 import sd2223.trab1.client.UsersClientFactory;
+import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -20,25 +21,40 @@ public class JavaFeeds implements Feeds {
     private static int feedsID;
     private long idCounter;
 
-    private ExecutorService executor = Executors.newFixedThreadPool(100);
+    private final int THREADS = 4;
 
-    // String -> userName; Mapa Long -> id; Message
-    // Feeds de todos os users do dominio
+    private ExecutorService executor;
+
+
+    /**
+     * Feeds dos users.
+     * String -> userName; Long -> id; Message
+     */
     private final Map<String, Map<Long, Message>> feeds = new HashMap<>();
 
-    // String -> userName; ---- String -> Domain; List String -> userName de subscricoes do user em Domain
-    // Contem todas as pessoas de dominios diferentes que o user segue
-    private final Map<String, Map<String, List<String>>> mySubscriptionsByDomain = new HashMap<>();
+    /**
+     * Subscricoes de users do de dominios diferentes, agrupados por dominio.
+     * String -> userName; String -> Domain; Set String -> userName de subscricoes do user em Domain
+     */
+    private final Map<String, Map<String, Set<String>>> mySubscriptionsByDomain = new HashMap<>();
 
-    // String -> userName; List String -> userName de subscricoes do user no dominio do user
-    private final Map<String, List<String>> mySubscriptionsInCurrentDomain = new HashMap<>();
+    /**
+     * Subscricoes do user no mesmo dominio do user.
+     * String -> userName; Set String -> userName de subscricoes do user no dominio do user
+     */
+    private final Map<String, Set<String>> mySubscriptionsInCurrentDomain = new HashMap<>();
 
-    // String -> userName; ---- String -> Domain; List String -> userName de followers do user em Domain
-    // Contem todos os seguidores do user em dominios diferentes do dominio do user
-    private final Map<String, Map<String, List<String>>> myFollowersByDomain = new HashMap<>();
+    /**
+     * Seguidores do user de dominios diferentes, agrupados por dominio.
+     * String -> userName; String -> Domain; Set String -> userName de seguidores do user em Domain
+     */
+    private final Map<String, Map<String, Set<String>>> myFollowersByDomain = new HashMap<>();
 
-    // String -> userName; List String -> userName de followers do user no dominio do user
-    private final Map<String, List<String>> myFollowersInCurrentDomain = new HashMap<>();
+    /**
+     * Seguidores do user no mesmo dominio do user.
+     * String -> userName; Set String -> userName de followers do user no dominio do user
+     */
+    private final Map<String, Set<String>> myFollowersInCurrentDomain = new HashMap<>();
 
 
     public JavaFeeds() {
@@ -49,23 +65,7 @@ public class JavaFeeds implements Feeds {
         this.feedsDomain = feedsDomain;
         this.feedsID = feedsID;
         idCounter = Long.MIN_VALUE;
-    }
-
-    private String getUserDomain(String user) {
-        var parts = user.split(DELIMITER);
-        String userDomain = parts[1];
-        return userDomain;
-    }
-
-    /**
-     * Metodo que gera um id unico para as msgs.
-     *
-     * @return id
-     */
-    private long generateId() {
-        long result = idCounter * 2 + feedsID;
-        idCounter++;
-        return result;
+        executor = Executors.newFixedThreadPool(THREADS);
     }
 
     /**
@@ -101,11 +101,22 @@ public class JavaFeeds implements Feeds {
      * Metodo auxiliar que chama o metodo que propaga uma mensagem.
      *
      * @param serverDomain dominio do servidor
-     * @param obj          objeto que contem a msg e a lista de users que a vao receber
+     * @param users        conjunto de users que vao receber a msg
+     * @param msg          msg a ser propagada
      */
-    private void auxPropMsg(String serverDomain, PropMsgHelper obj) {
+    private void auxPropMsg(String serverDomain, Set<String> users, Message msg) {
         Feeds feedsServer = FeedsClientFactory.get(serverDomain);
-        feedsServer.propagateMsg(obj);
+
+        if (feedsServer instanceof RestFeedsServer) {
+            String[] res = users.toArray(new String[users.size()]);
+            PropMsgHelper msgAndList = new PropMsgHelper(msg, res);
+            feedsServer.propagateMsgToRest(msgAndList);
+        } else {
+            String[] res = users.toArray(new String[users.size()]);
+            feedsServer.propagateMsgToSoap(res, msg);
+        }
+        //String[] res = users.toArray(new String[users.size()]);
+        //feedsServer.propagateMsgToSoap(res, msg);
     }
 
     /**
@@ -139,7 +150,7 @@ public class JavaFeeds implements Feeds {
      * @param msg  mensagem
      */
     private void putMessageInUser(String user, Message msg) {
-        Map<Long, Message> userFeed = feeds.computeIfAbsent(user, k -> new HashMap<>());
+        Map<Long, Message> userFeed = feeds.computeIfAbsent(user, feed -> new HashMap<>());
         userFeed.put(msg.getId(), msg);
     }
 
@@ -152,17 +163,17 @@ public class JavaFeeds implements Feeds {
     private void postMessageInFollowers(String user, Message msg) {
         synchronized (this) {// mesmo dominio
             // Colocar a msg no feed de todos os followers do user no mesmo dominio
-            List<String> followersInCurrentDomain = myFollowersInCurrentDomain.computeIfAbsent(user, followers -> new LinkedList<>());
+            Set<String> followersInCurrentDomain = myFollowersInCurrentDomain.computeIfAbsent(user, followers -> new HashSet<>());
             for (String f : followersInCurrentDomain)
                 putMessageInUser(f, msg);
         }
 
         synchronized (this) {
             // Colocar a msg no feed de todos os followers do user com dominios diferentes.
-            Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(user, domain -> new HashMap<>());
+            Map<String, Set<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(user, domain -> new HashMap<>());
             for (String domain : followersByDomain.keySet()) {
-                PropMsgHelper msgAndList = new PropMsgHelper(msg, followersByDomain.get(domain));
-                Runnable task = () -> auxPropMsg(domain, msgAndList);
+                Set<String> set = followersByDomain.get(domain);
+                Runnable task = () -> auxPropMsg(domain, set, msg);
                 executor.execute(task);
             }
         }
@@ -273,11 +284,11 @@ public class JavaFeeds implements Feeds {
         if (areSameDomain(user, userSub)) {
             synchronized (this) {
                 // Adiciono userSub as subs de user
-                List<String> userSubscriptions = mySubscriptionsInCurrentDomain.computeIfAbsent(user, subs -> new LinkedList<>());
+                Set<String> userSubscriptions = mySubscriptionsInCurrentDomain.computeIfAbsent(user, subs -> new HashSet<>());
                 userSubscriptions.add(userSub);
 
                 // Adiciono user aos follows de userSub
-                List<String> userSubFollowers = myFollowersInCurrentDomain.computeIfAbsent(userSub, followers -> new LinkedList<>());
+                Set<String> userSubFollowers = myFollowersInCurrentDomain.computeIfAbsent(userSub, followers -> new HashSet<>());
                 userSubFollowers.add(user);
             }
         }
@@ -285,9 +296,9 @@ public class JavaFeeds implements Feeds {
         else {
             synchronized (this) {
                 // Adiciono userSub as subs de user
-                Map<String, List<String>> subscriptionsByDomain = mySubscriptionsByDomain.computeIfAbsent(user, domain -> new HashMap<>());
+                Map<String, Set<String>> subscriptionsByDomain = mySubscriptionsByDomain.computeIfAbsent(user, domain -> new HashMap<>());
                 String userSubDomain = getUserDomain(userSub);
-                List<String> subsInDomain = subscriptionsByDomain.computeIfAbsent(userSubDomain, subs -> new LinkedList<>());
+                Set<String> subsInDomain = subscriptionsByDomain.computeIfAbsent(userSubDomain, subs -> new HashSet<>());
                 subsInDomain.add(userSub);
             }
             Runnable task = () -> auxPropSub(user, userSub);
@@ -311,22 +322,20 @@ public class JavaFeeds implements Feeds {
         if (areSameDomain(user, userSub)) {
             synchronized (this) {
                 // Removo userSub das subcricoes de user
-                List<String> userSubscriptions = mySubscriptionsInCurrentDomain.get(user);
-                if (userSubscriptions != null) while (userSubscriptions.remove(userSub)) ;
-
+                Set<String> userSubscriptions = mySubscriptionsInCurrentDomain.get(user);
+                if (userSubscriptions != null) userSubscriptions.remove(userSub);
 
                 // Removo user dos followers de userSub
-                List<String> userSubFollowers = myFollowersInCurrentDomain.get(userSub);
-                if (userSubFollowers != null) while (userSubFollowers.remove(user)) ;
-
+                Set<String> userSubFollowers = myFollowersInCurrentDomain.get(userSub);
+                if (userSubFollowers != null) userSubFollowers.remove(user);
             }
         } else {
             synchronized (this) {
                 // Removo userSub as subs de user de dominios diferentes
-                Map<String, List<String>> subscriptionsByDomain2 = mySubscriptionsByDomain.get(user);
-                if (subscriptionsByDomain2 != null) {
+                Map<String, Set<String>> subscriptionsByDomain = mySubscriptionsByDomain.get(user);
+                if (subscriptionsByDomain != null) {
                     String userSubDomain = getUserDomain(userSub);
-                    List<String> subsInDomain = subscriptionsByDomain2.get(userSubDomain);
+                    Set<String> subsInDomain = subscriptionsByDomain.get(userSubDomain);
                     if (subsInDomain != null)
                         subsInDomain.remove(userSub);
                 }
@@ -342,15 +351,14 @@ public class JavaFeeds implements Feeds {
         var result = auxCheckUser(user);
         if (!result.isOK()) return Result.error(result.error()); // 404
 
-        // Lista resultado
         List<String> list = new LinkedList<>();
 
         synchronized (this) {
             // Adicionamos todas as subscricores que o user tem no mesmo dominio
-            List<String> res = mySubscriptionsInCurrentDomain.get(user);
+            Set<String> res = mySubscriptionsInCurrentDomain.get(user);
             if (res != null) list.addAll(res);
-
-            Map<String, List<String>> subsByDomain = mySubscriptionsByDomain.get(user);
+            // Adicionamos todas as subscricores que o user tem em dominios diferentes do seu
+            Map<String, Set<String>> subsByDomain = mySubscriptionsByDomain.get(user);
             if (subsByDomain != null)
                 subsByDomain.forEach((domain, domainSubs) -> {
                     if (domainSubs != null)
@@ -370,10 +378,10 @@ public class JavaFeeds implements Feeds {
 
             feeds.remove(user);
 
-            List<String> subscriptions = mySubscriptionsInCurrentDomain.get(user);
+            Set<String> subscriptions = mySubscriptionsInCurrentDomain.get(user);
             if (subscriptions != null)
                 for (String s : subscriptions) { // aviso meus followers que os deixei de seguir
-                    List<String> followers = myFollowersInCurrentDomain.get(s);
+                    Set<String> followers = myFollowersInCurrentDomain.get(s);
                     followers.remove(user);
                 }
             mySubscriptionsInCurrentDomain.remove(user); // Remover todas as subs do mesmo dominio
@@ -382,10 +390,10 @@ public class JavaFeeds implements Feeds {
             // TODO se necessario
 
             // Removo todos os followers do user
-            List<String> uFollowers = myFollowersInCurrentDomain.get(user);
+            Set<String> uFollowers = myFollowersInCurrentDomain.get(user);
             if (uFollowers != null)
                 for (String f : uFollowers) { // Tenho de avisar todos os followers que eles deixaram de me seguir
-                    List<String> subs = mySubscriptionsInCurrentDomain.get(f);
+                    Set<String> subs = mySubscriptionsInCurrentDomain.get(f);
                     subs.remove(user);
                 }
             myFollowersInCurrentDomain.remove(user); // Remover todos os followers do mesmo dominio
@@ -398,14 +406,25 @@ public class JavaFeeds implements Feeds {
     }
 
     @Override
-    public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
+    public Result<Void> propagateMsgToRest(PropMsgHelper msgAndList) {
         Message msg = msgAndList.getMsg();
-        List<String> usersList = msgAndList.getSubs();
+        String[] subs = msgAndList.getSubs();
 
-        // Para todos os users de usersList, colocar no feed de cada um
-        if (usersList != null)
-            for (String u : usersList) {
-                Map<Long, Message> userFeed = feeds.computeIfAbsent(u, messages -> new HashMap<>());
+        if (subs != null)
+            synchronized (this) {
+                for (String u : subs) {
+                    Map<Long, Message> userFeed = feeds.computeIfAbsent(u, feed -> new HashMap<>());
+                    userFeed.put(msg.getId(), msg);
+                }
+            }
+        return Result.ok();
+    }
+
+    @Override
+    public Result<Void> propagateMsgToSoap(String[] users, Message msg) {
+        if (users != null)
+            for (String u : users) {
+                Map<Long, Message> userFeed = feeds.computeIfAbsent(u, feed -> new HashMap<>());
                 userFeed.put(msg.getId(), msg);
             }
         return Result.ok();
@@ -415,9 +434,9 @@ public class JavaFeeds implements Feeds {
     public Result<Void> propagateSub(String user, String userSub) {
         // Adicionar user aos followers de userSub
         synchronized (this) {
-            Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, domain -> new HashMap<>());
+            Map<String, Set<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, domain -> new HashMap<>());
             String userDomain = getUserDomain(user);
-            List<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, followers -> new LinkedList<>());
+            Set<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, followers -> new HashSet<>());
             usersInDomain.add(user);
         }
         return Result.ok();
@@ -427,9 +446,9 @@ public class JavaFeeds implements Feeds {
     public Result<Void> propagateUnsub(String user, String userSub) {
         // Remover user dos followers de userSub
         synchronized (this) {
-            Map<String, List<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, domain -> new HashMap<>());
+            Map<String, Set<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(userSub, domain -> new HashMap<>());
             String userDomain = getUserDomain(user);
-            List<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, followers -> new LinkedList<>());
+            Set<String> usersInDomain = followersByDomain.computeIfAbsent(userDomain, followers -> new HashSet<>());
             usersInDomain.remove(user);
         }
         return Result.ok();
@@ -448,6 +467,29 @@ public class JavaFeeds implements Feeds {
         parts = userSub.split(DELIMITER);
         String userSubDomain = parts[1];
         return userDomain.equals(userSubDomain);
+    }
+
+    /**
+     * Devolve o dominio do user.
+     *
+     * @param user user
+     * @return dominio do user
+     */
+    private String getUserDomain(String user) {
+        var parts = user.split(DELIMITER);
+        String userDomain = parts[1];
+        return userDomain;
+    }
+
+    /**
+     * Metodo que gera um id unico para as msgs.
+     *
+     * @return id
+     */
+    private long generateId() {
+        long result = idCounter * 2 + feedsID;
+        idCounter++;
+        return result;
     }
 
 }

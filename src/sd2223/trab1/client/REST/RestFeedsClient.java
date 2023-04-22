@@ -7,9 +7,11 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import sd2223.trab1.api.Message;
 import sd2223.trab1.api.PropMsgHelper;
+import sd2223.trab1.api.User;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.rest.FeedsService;
+import sd2223.trab1.api.rest.UsersService;
 
 import java.net.URI;
 import java.util.List;
@@ -74,8 +76,13 @@ public class RestFeedsClient extends RestClient implements Feeds {
     }
 
     @Override
-    public Result<Void> propagateMsg(PropMsgHelper msgAndList) {
+    public Result<Void> propagateMsgToRest(PropMsgHelper msgAndList) {
         return super.reTry(() -> clt_propagateMsg(msgAndList));
+    }
+
+    @Override
+    public Result<Void> propagateMsgToSoap(String[] users, Message msg) {
+        return super.reTry(() -> clt_propagateMessage2(users, msg));
     }
 
     private Result<Message> clt_getMessage(String user, long mid) {
@@ -120,6 +127,14 @@ public class RestFeedsClient extends RestClient implements Feeds {
         return super.toJavaResult(r, Void.class);
     }
 
+    private Result<Void> clt_delUserFeed(String user) {
+        Response r = target
+                .path(user)
+                .request()
+                .delete();
+        return super.toJavaResult(r, Void.class);
+    }
+
     private Result<Void> clt_propagateMsg(PropMsgHelper msgAndList) {
         Response r = target
                 .path("propagate")
@@ -128,11 +143,12 @@ public class RestFeedsClient extends RestClient implements Feeds {
         return super.toJavaResult(r, Void.class);
     }
 
-    private Result<Void> clt_delUserFeed(String user) {
+    private Result<Void> clt_propagateMessage2(String[] allUsers, Message msg) {
         Response r = target
-                .path(user)
+                .path("propagate2")
+                .queryParam(FeedsService.QUERY, allUsers)
                 .request()
-                .delete();
+                .post(Entity.entity(msg, MediaType.APPLICATION_JSON));
         return super.toJavaResult(r, Void.class);
     }
 

@@ -136,5 +136,8 @@ public interface FeedsService {
      * @param msgAndList objeto que contém a mensagem a ser colocada no subscritores do user que postou a msg e, a lista de subscritores do user no dominio para onde e feito o pedido.
      *                   // @throws NOT_FOUND if the user or userSub do not exist
      */
-    void propagateMsg(PropMsgHelper msgAndList) throws FeedsException;
+    void propagateMsgToRest(PropMsgHelper msgAndList) throws FeedsException;
+
+
+    void propagateMsgToSoap(String[] users, Message msg) throws FeedsException;
 }

@@ -64,11 +64,6 @@ public class RestFeedsResource extends RestResource implements FeedsService {
     }
 
     @Override
-    public void propagateMsg(PropMsgHelper msgAndList) {
-        super.fromJavaResult(impl.propagateMsg(msgAndList));
-    }
-
-    @Override
     public void propagateUnsub(String user, String userSub) {
         super.fromJavaResult(impl.propagateUnsub(user, userSub));
     }
@@ -76,6 +71,16 @@ public class RestFeedsResource extends RestResource implements FeedsService {
     @Override
     public void propagateSub(String user, String userSub) {
         super.fromJavaResult(impl.propagateSub(user, userSub));
+    }
+
+    @Override
+    public void propagateMsgToRest(PropMsgHelper msgAndList) {
+        super.fromJavaResult(impl.propagateMsgToRest(msgAndList));
+    }
+
+    @Override
+    public void propagateMsgToSoap(String[] users, Message msg) {
+        super.fromJavaResult(impl.propagateMsgToSoap(users, msg));
     }
 
 

@@ -13,6 +13,8 @@ public interface FeedsService {
     String MID = "mid";
     String PWD = "pwd";
     String USER = "user";
+
+    String QUERY = "query";
     String TIME = "time";
     String DOMAIN = "domain";
     String USERSUB = "userSub";
@@ -172,6 +174,13 @@ public interface FeedsService {
     @POST
     @Path("/propagate")
     @Consumes(MediaType.APPLICATION_JSON)
-    void propagateMsg(PropMsgHelper msgAndList);
+    void propagateMsgToRest(PropMsgHelper msgAndList);
+
+
+    @POST
+    @Path("/propagate2")
+    @Consumes(MediaType.APPLICATION_JSON)
+    void propagateMsgToSoap(@QueryParam(QUERY) String[] users, Message msg);
+
 
 }
