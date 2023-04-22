@@ -75,11 +75,6 @@ public class SoapFeedsWebService extends SoapWebService<FeedsException> implemen
     }
 
     @Override
-    public void propagateMsgToRest(PropMsgHelper msgAndList) throws FeedsException {
-        super.fromJavaResult(impl.propagateMsgToRest(msgAndList));
-    }
-
-    @Override
     public void propagateMsgToSoap(String[] users, Message msg) throws FeedsException {
         super.fromJavaResult(impl.propagateMsgToSoap(users, msg));
     }

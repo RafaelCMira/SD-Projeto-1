@@ -405,21 +405,6 @@ public class JavaFeeds implements Feeds {
     }
 
     @Override
-    public Result<Void> propagateMsgToRest(PropMsgHelper msgAndList) {
-        Message msg = msgAndList.getMsg();
-        String[] subs = msgAndList.getSubs();
-
-        if (subs != null)
-            synchronized (this) {
-                for (String u : subs) {
-                    Map<Long, Message> userFeed = feeds.computeIfAbsent(u, feed -> new HashMap<>());
-                    userFeed.put(msg.getId(), msg);
-                }
-            }
-        return Result.ok();
-    }
-
-    @Override
     public Result<Void> propagateMsgToSoap(String[] users, Message msg) {
         if (users != null)
             for (String u : users) {
@@ -486,7 +471,7 @@ public class JavaFeeds implements Feeds {
      * @return id
      */
     private long generateId() {
-        long result = idCounter * 2 + feedsID;
+        long result = idCounter * 256 + feedsID;
         idCounter++;
         return result;
     }

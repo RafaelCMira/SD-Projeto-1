@@ -26,8 +26,7 @@ public interface Feeds {
     Result<Void> propagateSub(String user, String userSub);
 
     Result<Void> propagateUnsub(String user, String userSub);
-
-    Result<Void> propagateMsgToRest(PropMsgHelper msgAndList);
+    
 
     Result<Void> propagateMsgToSoap(String[] users, Message msg);
 }

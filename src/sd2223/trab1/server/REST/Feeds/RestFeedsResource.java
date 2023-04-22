@@ -74,11 +74,6 @@ public class RestFeedsResource extends RestResource implements FeedsService {
     }
 
     @Override
-    public void propagateMsgToRest(PropMsgHelper msgAndList) {
-        super.fromJavaResult(impl.propagateMsgToRest(msgAndList));
-    }
-
-    @Override
     public void propagateMsgToSoap(String[] users, Message msg) {
         super.fromJavaResult(impl.propagateMsgToSoap(users, msg));
     }

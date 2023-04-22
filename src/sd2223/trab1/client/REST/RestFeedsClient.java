@@ -76,11 +76,6 @@ public class RestFeedsClient extends RestClient implements Feeds {
     }
 
     @Override
-    public Result<Void> propagateMsgToRest(PropMsgHelper msgAndList) {
-        return super.reTry(() -> clt_propagateMsg(msgAndList));
-    }
-
-    @Override
     public Result<Void> propagateMsgToSoap(String[] users, Message msg) {
         return super.reTry(() -> clt_propagateMessage2(users, msg));
     }

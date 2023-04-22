@@ -171,10 +171,6 @@ public interface FeedsService {
      * @param msgAndList objeto que contém a mensagem a ser colocada no subscritores do user que postou a msg e, a lista de subscritores do user no dominio para onde e feito o pedido.
      * @return 204 if ok
      */
-    @POST
-    @Path("/propagate")
-    @Consumes(MediaType.APPLICATION_JSON)
-    void propagateMsgToRest(PropMsgHelper msgAndList);
 
 
     @POST
