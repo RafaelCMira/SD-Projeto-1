@@ -3,7 +3,6 @@ package sd2223.trab1.client.SOAP;
 import jakarta.xml.ws.BindingProvider;
 import jakarta.xml.ws.Service;
 import sd2223.trab1.api.Message;
-import sd2223.trab1.api.PropMsgHelper;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.soap.FeedsService;
@@ -80,8 +79,8 @@ public class SoapFeedsClient extends SoapClient implements Feeds {
     }
 
     @Override
-    public Result<Void> propagateMsgToSoap(String[] users, Message msg) {
-        return super.reTry(() -> super.toJavaResult(() -> stub().propagateMsgToSoap(users, msg)));
+    public Result<Void> propagateMsg(String[] users, Message msg) {
+        return super.reTry(() -> super.toJavaResult(() -> stub().propagateMsg(users, msg)));
     }
 
 

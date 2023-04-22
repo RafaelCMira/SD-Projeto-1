@@ -2,13 +2,11 @@ package sd2223.trab1.server.java;
 
 import jakarta.inject.Singleton;
 import sd2223.trab1.api.Message;
-import sd2223.trab1.api.PropMsgHelper;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Users;
 import sd2223.trab1.client.FeedsClientFactory;
 import sd2223.trab1.client.UsersClientFactory;
-import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -115,7 +113,7 @@ public class JavaFeeds implements Feeds {
             feedsServer.propagateMsgToSoap(res, msg);
         }*/
         String[] res = users.toArray(new String[users.size()]);
-        feedsServer.propagateMsgToSoap(res, msg);
+        feedsServer.propagateMsg(res, msg);
     }
 
     /**
@@ -405,7 +403,7 @@ public class JavaFeeds implements Feeds {
     }
 
     @Override
-    public Result<Void> propagateMsgToSoap(String[] users, Message msg) {
+    public Result<Void> propagateMsg(String[] users, Message msg) {
         if (users != null)
             for (String u : users) {
                 Map<Long, Message> userFeed = feeds.computeIfAbsent(u, feed -> new HashMap<>());

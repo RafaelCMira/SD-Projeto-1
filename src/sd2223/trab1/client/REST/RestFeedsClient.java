@@ -6,12 +6,9 @@ import jakarta.ws.rs.core.GenericType;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import sd2223.trab1.api.Message;
-import sd2223.trab1.api.PropMsgHelper;
-import sd2223.trab1.api.User;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.rest.FeedsService;
-import sd2223.trab1.api.rest.UsersService;
 
 import java.net.URI;
 import java.util.List;
@@ -76,8 +73,8 @@ public class RestFeedsClient extends RestClient implements Feeds {
     }
 
     @Override
-    public Result<Void> propagateMsgToSoap(String[] users, Message msg) {
-        return super.reTry(() -> clt_propagateMessage2(users, msg));
+    public Result<Void> propagateMsg(String[] users, Message msg) {
+        return super.reTry(() -> clt_propagateMsg(users, msg));
     }
 
     private Result<Message> clt_getMessage(String user, long mid) {
@@ -130,17 +127,9 @@ public class RestFeedsClient extends RestClient implements Feeds {
         return super.toJavaResult(r, Void.class);
     }
 
-    private Result<Void> clt_propagateMsg(PropMsgHelper msgAndList) {
+    private Result<Void> clt_propagateMsg(String[] allUsers, Message msg) {
         Response r = target
                 .path("propagate")
-                .request()
-                .post(Entity.entity(msgAndList, MediaType.APPLICATION_JSON));
-        return super.toJavaResult(r, Void.class);
-    }
-
-    private Result<Void> clt_propagateMessage2(String[] allUsers, Message msg) {
-        Response r = target
-                .path("propagate2")
                 .queryParam(FeedsService.QUERY, allUsers)
                 .request()
                 .post(Entity.entity(msg, MediaType.APPLICATION_JSON));

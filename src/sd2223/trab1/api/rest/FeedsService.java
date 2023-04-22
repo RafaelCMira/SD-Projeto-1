@@ -5,7 +5,6 @@ import java.util.List;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import sd2223.trab1.api.Message;
-import sd2223.trab1.api.PropMsgHelper;
 
 @Path(FeedsService.PATH)
 public interface FeedsService {
@@ -174,9 +173,9 @@ public interface FeedsService {
 
 
     @POST
-    @Path("/propagate2")
+    @Path("/propagate")
     @Consumes(MediaType.APPLICATION_JSON)
-    void propagateMsgToSoap(@QueryParam(QUERY) String[] users, Message msg);
+    void propagateMsg(@QueryParam(QUERY) String[] users, Message msg);
 
 
 }

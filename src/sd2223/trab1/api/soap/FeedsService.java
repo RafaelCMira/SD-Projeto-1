@@ -5,7 +5,6 @@ import java.util.List;
 import jakarta.jws.WebMethod;
 import jakarta.jws.WebService;
 import sd2223.trab1.api.Message;
-import sd2223.trab1.api.PropMsgHelper;
 
 @WebService(serviceName = FeedsService.NAME, targetNamespace = FeedsService.NAMESPACE, endpointInterface = FeedsService.INTERFACE)
 public interface FeedsService {
@@ -132,11 +131,6 @@ public interface FeedsService {
 
     /**
      * Propaga uma mensagem de um user que esta num dominio para todos os seguidores de um outro dominio.
-     *
-     * @param msgAndList objeto que contém a mensagem a ser colocada no subscritores do user que postou a msg e, a lista de subscritores do user no dominio para onde e feito o pedido.
-     *                   // @throws NOT_FOUND if the user or userSub do not exist
      */
-
-
-    void propagateMsgToSoap(String[] users, Message msg) throws FeedsException;
+    void propagateMsg(String[] users, Message msg) throws FeedsException;
 }

@@ -2,7 +2,6 @@ package sd2223.trab1.server.SOAP.Feeds;
 
 import jakarta.jws.WebService;
 import sd2223.trab1.api.Message;
-import sd2223.trab1.api.PropMsgHelper;
 import sd2223.trab1.api.java.Feeds;
 import sd2223.trab1.api.soap.FeedsException;
 import sd2223.trab1.api.soap.FeedsService;
@@ -75,8 +74,8 @@ public class SoapFeedsWebService extends SoapWebService<FeedsException> implemen
     }
 
     @Override
-    public void propagateMsgToSoap(String[] users, Message msg) throws FeedsException {
-        super.fromJavaResult(impl.propagateMsgToSoap(users, msg));
+    public void propagateMsg(String[] users, Message msg) throws FeedsException {
+        super.fromJavaResult(impl.propagateMsg(users, msg));
     }
 
 }

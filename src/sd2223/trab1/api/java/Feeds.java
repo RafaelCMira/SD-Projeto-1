@@ -1,7 +1,6 @@
 package sd2223.trab1.api.java;
 
 import sd2223.trab1.api.Message;
-import sd2223.trab1.api.PropMsgHelper;
 
 import java.util.List;
 
@@ -26,7 +25,6 @@ public interface Feeds {
     Result<Void> propagateSub(String user, String userSub);
 
     Result<Void> propagateUnsub(String user, String userSub);
-    
 
-    Result<Void> propagateMsgToSoap(String[] users, Message msg);
+    Result<Void> propagateMsg(String[] users, Message msg);
 }
