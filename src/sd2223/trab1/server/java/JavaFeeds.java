@@ -21,9 +21,9 @@ public class JavaFeeds implements Feeds {
     private static int feedsID;
     private long idCounter;
 
-    private final int THREADS = 4;
+    private final int THREADS = Runtime.getRuntime().availableProcessors();
 
-    private ExecutorService executor;
+    private ExecutorService executor = Executors.newFixedThreadPool(THREADS);
 
 
     /**
@@ -65,7 +65,6 @@ public class JavaFeeds implements Feeds {
         this.feedsDomain = feedsDomain;
         this.feedsID = feedsID;
         idCounter = Long.MIN_VALUE;
-        executor = Executors.newFixedThreadPool(THREADS);
     }
 
     /**
@@ -106,7 +105,7 @@ public class JavaFeeds implements Feeds {
      */
     private void auxPropMsg(String serverDomain, Set<String> users, Message msg) {
         Feeds feedsServer = FeedsClientFactory.get(serverDomain);
-
+        /*
         if (feedsServer instanceof RestFeedsServer) {
             String[] res = users.toArray(new String[users.size()]);
             PropMsgHelper msgAndList = new PropMsgHelper(msg, res);
@@ -114,9 +113,9 @@ public class JavaFeeds implements Feeds {
         } else {
             String[] res = users.toArray(new String[users.size()]);
             feedsServer.propagateMsgToSoap(res, msg);
-        }
-        //String[] res = users.toArray(new String[users.size()]);
-        //feedsServer.propagateMsgToSoap(res, msg);
+        }*/
+        String[] res = users.toArray(new String[users.size()]);
+        feedsServer.propagateMsgToSoap(res, msg);
     }
 
     /**
