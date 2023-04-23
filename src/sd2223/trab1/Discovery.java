@@ -1,7 +1,10 @@
 package sd2223.trab1;
 
 import java.net.*;
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**

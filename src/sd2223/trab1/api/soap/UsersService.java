@@ -1,14 +1,10 @@
 package sd2223.trab1.api.soap;
 
-import java.util.List;
-
 import jakarta.jws.WebMethod;
 import jakarta.jws.WebService;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.QueryParam;
 import sd2223.trab1.api.User;
+
+import java.util.List;
 
 @WebService(serviceName = UsersService.NAME, targetNamespace = UsersService.NAMESPACE, endpointInterface = UsersService.INTERFACE)
 public interface UsersService {
@@ -69,7 +65,6 @@ public interface UsersService {
     @WebMethod
     List<User> searchUsers(String pattern) throws UsersException;
 
-
     /**
      * Verifica a password do user entre outras coisa. Verifica tambem se o user existe claro.
      *
@@ -78,7 +73,6 @@ public interface UsersService {
      * @throws UsersException otherwise
      */
     void verifyPassword(String name, String pwd) throws UsersException;
-
 
     /**
      * Verifica se um user existe.

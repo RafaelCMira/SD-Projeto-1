@@ -1,10 +1,8 @@
 package sd2223.trab1.server.REST.Users;
 
-import jakarta.inject.Singleton;
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import sd2223.trab1.Discovery;
-import sd2223.trab1.server.REST.Feeds.RestFeedsResource;
 
 import java.net.InetAddress;
 import java.net.URI;

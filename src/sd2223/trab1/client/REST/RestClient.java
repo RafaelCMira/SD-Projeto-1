@@ -1,8 +1,5 @@
 package sd2223.trab1.client.REST;
 
-import static sd2223.trab1.api.java.Result.error;
-import static sd2223.trab1.api.java.Result.ok;
-
 import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
@@ -16,6 +13,9 @@ import sd2223.trab1.api.java.Result.ErrorCode;
 import java.net.URI;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
+
+import static sd2223.trab1.api.java.Result.error;
+import static sd2223.trab1.api.java.Result.ok;
 
 
 public class RestClient {

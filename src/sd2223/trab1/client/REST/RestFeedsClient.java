@@ -77,6 +77,7 @@ public class RestFeedsClient extends RestClient implements Feeds {
         return super.reTry(() -> clt_propagateMsg(users, msg));
     }
 
+
     private Result<Message> clt_getMessage(String user, long mid) {
         Response r = target
                 .path(user)
@@ -135,5 +136,6 @@ public class RestFeedsClient extends RestClient implements Feeds {
                 .post(Entity.entity(msg, MediaType.APPLICATION_JSON));
         return super.toJavaResult(r, Void.class);
     }
+
 
 }

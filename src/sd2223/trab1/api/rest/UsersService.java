@@ -1,18 +1,10 @@
 package sd2223.trab1.api.rest;
 
-import java.util.List;
-
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.PUT;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import sd2223.trab1.api.User;
+
+import java.util.List;
 
 @Path(UsersService.PATH)
 public interface UsersService {
@@ -102,7 +94,7 @@ public interface UsersService {
 
 
     /**
-     * Verifica a password do user entre outras coisa. Verifica tambem se o user existe claro.
+     * Verifica a password do user entre outras coisas. Verifica tambem se o user existe claro.
      *
      * @param name nome do user
      * @param pwd  password do user
@@ -113,7 +105,7 @@ public interface UsersService {
 
 
     /**
-     * Verifica se um user existe.
+     * Verifica apenas se um user existe.
      *
      * @param name nome do user
      */

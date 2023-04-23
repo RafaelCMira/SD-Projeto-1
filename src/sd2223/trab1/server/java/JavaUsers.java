@@ -6,7 +6,6 @@ import sd2223.trab1.api.java.Result;
 import sd2223.trab1.api.java.Result.ErrorCode;
 import sd2223.trab1.api.java.Users;
 import sd2223.trab1.client.FeedsClientFactory;
-import sd2223.trab1.server.REST.Feeds.RestFeedsServer;
 
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -113,12 +112,10 @@ public class JavaUsers implements Users {
                 users.remove(name);
             }
 
-            // Com isto comentado passa o SOAP DELETE mas falha o REST delete
             String userName = user.getName() + DELIMITER + user.getDomain();
             Feeds feedsServer = FeedsClientFactory.get(user.getDomain());
             feedsServer.deleteUserFeed(userName);
-            // Com isto comentado passa o SOAP DELETE mas falha o REST delete
-
+            
             return Result.ok(user); // 200n
         }
     }

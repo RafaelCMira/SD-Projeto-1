@@ -1,11 +1,9 @@
 package sd2223.trab1.api;
 
-import java.io.Serializable;
-
 /**
  * Represents a message in the system.
  */
-public class Message implements Serializable {
+public class Message {
 
     private long id;
     private String user;

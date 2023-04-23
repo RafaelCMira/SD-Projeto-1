@@ -77,5 +77,6 @@ public class SoapFeedsWebService extends SoapWebService<FeedsException> implemen
     public void propagateMsg(String[] users, Message msg) throws FeedsException {
         super.fromJavaResult(impl.propagateMsg(users, msg));
     }
+    
 
 }

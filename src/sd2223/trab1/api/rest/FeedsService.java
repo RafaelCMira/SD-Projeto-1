@@ -1,10 +1,10 @@
 package sd2223.trab1.api.rest;
 
-import java.util.List;
-
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import sd2223.trab1.api.Message;
+
+import java.util.List;
 
 @Path(FeedsService.PATH)
 public interface FeedsService {
@@ -12,12 +12,9 @@ public interface FeedsService {
     String MID = "mid";
     String PWD = "pwd";
     String USER = "user";
-
     String QUERY = "query";
     String TIME = "time";
-    String DOMAIN = "domain";
     String USERSUB = "userSub";
-
     String PATH = "/feeds";
 
     /**
@@ -167,11 +164,8 @@ public interface FeedsService {
     /**
      * Propaga uma mensagem de um user que esta num dominio para todos os seguidores de um outro dominio.
      *
-     * @param msgAndList objeto que contém a mensagem a ser colocada no subscritores do user que postou a msg e, a lista de subscritores do user no dominio para onde e feito o pedido.
      * @return 204 if ok
      */
-
-
     @POST
     @Path("/propagate")
     @Consumes(MediaType.APPLICATION_JSON)

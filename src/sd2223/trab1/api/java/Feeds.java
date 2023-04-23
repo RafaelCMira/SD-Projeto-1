@@ -27,4 +27,5 @@ public interface Feeds {
     Result<Void> propagateUnsub(String user, String userSub);
 
     Result<Void> propagateMsg(String[] users, Message msg);
+    
 }

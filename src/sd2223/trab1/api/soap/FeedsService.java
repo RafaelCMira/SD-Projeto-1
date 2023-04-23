@@ -1,10 +1,10 @@
 package sd2223.trab1.api.soap;
 
-import java.util.List;
-
 import jakarta.jws.WebMethod;
 import jakarta.jws.WebService;
 import sd2223.trab1.api.Message;
+
+import java.util.List;
 
 @WebService(serviceName = FeedsService.NAME, targetNamespace = FeedsService.NAMESPACE, endpointInterface = FeedsService.INTERFACE)
 public interface FeedsService {
@@ -132,5 +132,14 @@ public interface FeedsService {
     /**
      * Propaga uma mensagem de um user que esta num dominio para todos os seguidores de um outro dominio.
      */
+
+    /**
+     * Propaga uma msg para um dominio para os users contidos no array.
+     *
+     * @param users users
+     * @param msg   mensagem
+     */
     void propagateMsg(String[] users, Message msg) throws FeedsException;
+
+
 }

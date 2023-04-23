@@ -15,10 +15,25 @@ import java.util.concurrent.Executors;
 @Singleton
 public class JavaFeeds implements Feeds {
     private static final String DELIMITER = "@";
+
+    /**
+     * Dominio do servidor de feeds.
+     */
     private static String feedsDomain;
+
+    /**
+     * Identificador do servidor de feeds.
+     */
     private static int feedsID;
+
+    /**
+     * Numero sequencial que permite gerar ids unicos para as msgs.
+     */
     private long idCounter;
 
+    /**
+     * Numero de threads.
+     */
     private final int THREADS = Runtime.getRuntime().availableProcessors();
 
     private ExecutorService executor = Executors.newFixedThreadPool(THREADS);
@@ -63,118 +78,6 @@ public class JavaFeeds implements Feeds {
         this.feedsDomain = feedsDomain;
         this.feedsID = feedsID;
         idCounter = Long.MIN_VALUE;
-    }
-
-    /**
-     * Verifica se a password do user esta correta.
-     *
-     * @param user user a ser verificado
-     * @param pwd  password a ser verificado
-     * @return ok se esta correta ou um erro.
-     */
-    private Result<Void> auxVerifyPassword(String user, String pwd) {
-        var parts = user.split(DELIMITER);
-        String userName = parts[0];
-        String userDomain = parts[1];
-        Users usersServer = UsersClientFactory.get(userDomain);
-        return usersServer.verifyPassword(userName, pwd);
-    }
-
-    /**
-     * Verifica se um user existe.
-     *
-     * @param user user a ser verificado
-     * @return ok se existe ou um erro.
-     */
-    private Result<Void> auxCheckUser(String user) {
-        var parts = user.split(DELIMITER);
-        String userName = parts[0];
-        String userDomain = parts[1];
-        Users usersServer = UsersClientFactory.get(userDomain);
-        return usersServer.checkUser(userName);
-    }
-
-    /**
-     * Metodo auxiliar que chama o metodo que propaga uma mensagem.
-     *
-     * @param serverDomain dominio do servidor
-     * @param users        conjunto de users que vao receber a msg
-     * @param msg          msg a ser propagada
-     */
-    private void auxPropMsg(String serverDomain, Set<String> users, Message msg) {
-        Feeds feedsServer = FeedsClientFactory.get(serverDomain);
-        /*
-        if (feedsServer instanceof RestFeedsServer) {
-            String[] res = users.toArray(new String[users.size()]);
-            PropMsgHelper msgAndList = new PropMsgHelper(msg, res);
-            feedsServer.propagateMsgToRest(msgAndList);
-        } else {
-            String[] res = users.toArray(new String[users.size()]);
-            feedsServer.propagateMsgToSoap(res, msg);
-        }*/
-        String[] res = users.toArray(new String[users.size()]);
-        feedsServer.propagateMsg(res, msg);
-    }
-
-    /**
-     * Metodo auxiliar para propagar uma subscricao de um dominio para outro.
-     *
-     * @param user    user que subscreve
-     * @param userSub user que foi subscrito
-     */
-    private void auxPropSub(String user, String userSub) {
-        String userSubDomain = getUserDomain(userSub);
-        Feeds feedsServer = FeedsClientFactory.get(userSubDomain);
-        feedsServer.propagateSub(user, userSub);
-    }
-
-    /**
-     * Metodo auxiliar para propagar um unfollow de um dominio para outro.
-     *
-     * @param user    user que faz unfollow
-     * @param userSub user que foi unfollowed
-     */
-    private void auxPropUnsub(String user, String userSub) {
-        String userSubDomain = getUserDomain(userSub);
-        Feeds feedsServer = FeedsClientFactory.get(userSubDomain);
-        feedsServer.propagateUnsub(user, userSub);
-    }
-
-    /**
-     * Coloca uma msg num user do dominio corrente.
-     *
-     * @param user user
-     * @param msg  mensagem
-     */
-    private void putMessageInUser(String user, Message msg) {
-        Map<Long, Message> userFeed = feeds.computeIfAbsent(user, feed -> new HashMap<>());
-        userFeed.put(msg.getId(), msg);
-    }
-
-    /**
-     * Metodo que coloca uma msg em todos os followers de um user.
-     *
-     * @param user user
-     * @param msg  mensagem a colocar
-     */
-    private void postMessageInFollowers(String user, Message msg) {
-        synchronized (this) {// mesmo dominio
-            // Colocar a msg no feed de todos os followers do user no mesmo dominio
-            Set<String> followersInCurrentDomain = myFollowersInCurrentDomain.computeIfAbsent(user, followers -> new HashSet<>());
-            for (String f : followersInCurrentDomain)
-                putMessageInUser(f, msg);
-        }
-
-        synchronized (this) {
-            // Colocar a msg no feed de todos os followers do user com dominios diferentes.
-            Map<String, Set<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(user, domain -> new HashMap<>());
-            for (String domain : followersByDomain.keySet()) {
-                Set<String> set = followersByDomain.get(domain);
-                Runnable task = () -> auxPropMsg(domain, set, msg);
-                executor.execute(task);
-            }
-        }
-        // executor.shutdown();
     }
 
     @Override
@@ -231,9 +134,11 @@ public class JavaFeeds implements Feeds {
                 if (userFeed == null) return Result.error(Result.ErrorCode.NOT_FOUND); // 404
 
                 msg = userFeed.get(mid);
+
+                // Se a msg nao existe
+                if (msg == null) return Result.error(Result.ErrorCode.NOT_FOUND); // 404
             }
-            // Se a msg nao existe
-            if (msg == null) return Result.error(Result.ErrorCode.NOT_FOUND); // 404
+
 
             return Result.ok(msg);
         } else {
@@ -373,7 +278,7 @@ public class JavaFeeds implements Feeds {
             Map<Long, Message> userFeed = feeds.get(user);
             if (userFeed == null) return Result.ok(); // nao tem msg no feed
 
-            feeds.remove(user);
+            feeds.remove(user); // removo o meu feed
 
             Set<String> subscriptions = mySubscriptionsInCurrentDomain.get(user);
             if (subscriptions != null)
@@ -383,9 +288,6 @@ public class JavaFeeds implements Feeds {
                 }
             mySubscriptionsInCurrentDomain.remove(user); // Remover todas as subs do mesmo dominio
 
-            // Remover todas as subs de dominios diferentes
-            // TODO se necessario
-
             // Removo todos os followers do user
             Set<String> uFollowers = myFollowersInCurrentDomain.get(user);
             if (uFollowers != null)
@@ -394,9 +296,6 @@ public class JavaFeeds implements Feeds {
                     subs.remove(user);
                 }
             myFollowersInCurrentDomain.remove(user); // Remover todos os followers do mesmo dominio
-
-            // Remover todos os followers de dominios diferentes
-            // TODO se necessario
         }
 
         return Result.ok();
@@ -404,11 +303,13 @@ public class JavaFeeds implements Feeds {
 
     @Override
     public Result<Void> propagateMsg(String[] users, Message msg) {
-        if (users != null)
-            for (String u : users) {
-                Map<Long, Message> userFeed = feeds.computeIfAbsent(u, feed -> new HashMap<>());
-                userFeed.put(msg.getId(), msg);
-            }
+        synchronized (this) {
+            if (users != null)
+                for (String u : users) {
+                    Map<Long, Message> userFeed = feeds.computeIfAbsent(u, feed -> new HashMap<>());
+                    userFeed.put(msg.getId(), msg);
+                }
+        }
         return Result.ok();
     }
 
@@ -434,6 +335,109 @@ public class JavaFeeds implements Feeds {
             usersInDomain.remove(user);
         }
         return Result.ok();
+    }
+
+    /**
+     * Verifica se a password do user esta correta.
+     *
+     * @param user user a ser verificado
+     * @param pwd  password a ser verificado
+     * @return ok se esta correta ou um erro.
+     */
+    private Result<Void> auxVerifyPassword(String user, String pwd) {
+        var parts = user.split(DELIMITER);
+        String userName = parts[0];
+        String userDomain = parts[1];
+        Users usersServer = UsersClientFactory.get(userDomain);
+        return usersServer.verifyPassword(userName, pwd);
+    }
+
+    /**
+     * Verifica se um user existe.
+     *
+     * @param user user a ser verificado
+     * @return ok se existe ou um erro.
+     */
+    private Result<Void> auxCheckUser(String user) {
+        var parts = user.split(DELIMITER);
+        String userName = parts[0];
+        String userDomain = parts[1];
+        Users usersServer = UsersClientFactory.get(userDomain);
+        return usersServer.checkUser(userName);
+    }
+
+    /**
+     * Metodo auxiliar que chama o metodo que propaga uma mensagem.
+     *
+     * @param serverDomain dominio do servidor
+     * @param users        conjunto de users que vao receber a msg
+     * @param msg          msg a ser propagada
+     */
+    private void auxPropMsg(String serverDomain, Set<String> users, Message msg) {
+        Feeds feedsServer = FeedsClientFactory.get(serverDomain);
+        String[] res = users.toArray(new String[users.size()]);
+        feedsServer.propagateMsg(res, msg);
+    }
+
+    /**
+     * Metodo auxiliar para propagar uma subscricao de um dominio para outro.
+     *
+     * @param user    user que subscreve
+     * @param userSub user que foi subscrito
+     */
+    private void auxPropSub(String user, String userSub) {
+        String userSubDomain = getUserDomain(userSub);
+        Feeds feedsServer = FeedsClientFactory.get(userSubDomain);
+        feedsServer.propagateSub(user, userSub);
+    }
+
+    /**
+     * Metodo auxiliar para propagar um unfollow de um dominio para outro.
+     *
+     * @param user    user que faz unfollow
+     * @param userSub user que foi unfollowed
+     */
+    private void auxPropUnsub(String user, String userSub) {
+        String userSubDomain = getUserDomain(userSub);
+        Feeds feedsServer = FeedsClientFactory.get(userSubDomain);
+        feedsServer.propagateUnsub(user, userSub);
+    }
+
+    /**
+     * Coloca uma msg num user do dominio corrente.
+     *
+     * @param user user
+     * @param msg  mensagem
+     */
+    private void putMessageInUser(String user, Message msg) {
+        Map<Long, Message> userFeed = feeds.computeIfAbsent(user, feed -> new HashMap<>());
+        userFeed.put(msg.getId(), msg);
+    }
+
+    /**
+     * Metodo que coloca uma msg em todos os followers de um user.
+     *
+     * @param user user
+     * @param msg  mensagem a colocar
+     */
+    private void postMessageInFollowers(String user, Message msg) {
+        synchronized (this) {// mesmo dominio
+            // Colocar a msg no feed de todos os followers do user no mesmo dominio
+            Set<String> followersInCurrentDomain = myFollowersInCurrentDomain.computeIfAbsent(user, followers -> new HashSet<>());
+            for (String f : followersInCurrentDomain)
+                putMessageInUser(f, msg);
+        }
+
+        synchronized (this) {
+            // Colocar a msg no feed de todos os followers do user com dominios diferentes.
+            Map<String, Set<String>> followersByDomain = myFollowersByDomain.computeIfAbsent(user, domain -> new HashMap<>());
+            for (String domain : followersByDomain.keySet()) {
+                Set<String> set = followersByDomain.get(domain);
+                Runnable task = () -> auxPropMsg(domain, set, msg);
+                executor.execute(task);
+            }
+        }
+        // executor.shutdown();
     }
 
     /**
